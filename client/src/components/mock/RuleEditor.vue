@@ -91,20 +91,16 @@
           <div v-for="cat in tagCategories" :key="cat.label">
             <p class="text-xs font-semibold text-gray-600 mb-1">{{ cat.label }}</p>
             <div class="flex flex-wrap gap-1">
-              <div v-for="tag in cat.tags" :key="tag.value" class="relative group/tag">
-                <button
-                  @click="insertTag(tag.value)"
-                  class="px-2 py-0.5 text-xs font-mono rounded border transition"
-                  :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
-                >
-                  {{ tag.label }}
-                </button>
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                  <p class="font-medium">{{ tag.desc }}</p>
-                  <p v-if="tag.example" class="text-gray-400 font-mono mt-0.5">{{ tag.example }}</p>
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                </div>
-              </div>
+              <button
+                v-for="tag in cat.tags" :key="tag.value"
+                @click="insertTag(tag.value)"
+                @mouseenter="showTooltip($event, tag)"
+                @mouseleave="hideTooltip"
+                class="px-2 py-0.5 text-xs font-mono rounded border transition"
+                :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
+              >
+                {{ tag.label }}
+              </button>
             </div>
           </div>
         </div>
@@ -136,6 +132,19 @@
         </button>
       </div>
     </div>
+
+    <!-- Tooltip (teleported to body so it's above everything) -->
+    <Teleport to="body">
+      <div
+        v-if="tooltip.visible"
+        class="fixed px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg shadow-lg pointer-events-none whitespace-nowrap"
+        :style="{ top: tooltip.y + 'px', left: tooltip.x + 'px', zIndex: 99999, transform: 'translate(-50%, -100%)' }"
+      >
+        <p class="font-medium">{{ tooltip.desc }}</p>
+        <p v-if="tooltip.example" class="text-gray-400 font-mono mt-0.5">{{ tooltip.example }}</p>
+        <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -157,6 +166,20 @@ const bulkConditionsText = ref('')
 const highlightRef = ref(null)
 const textareaRef = ref(null)
 const showTagPanel = ref(false)
+const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
+
+function showTooltip(event, tag) {
+  const rect = event.target.getBoundingClientRect()
+  tooltip.x = rect.left + rect.width / 2
+  tooltip.y = rect.top - 8
+  tooltip.desc = tag.desc
+  tooltip.example = tag.example || ''
+  tooltip.visible = true
+}
+
+function hideTooltip() {
+  tooltip.visible = false
+}
 
 const tagCategories = [
   {
