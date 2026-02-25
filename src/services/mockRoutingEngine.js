@@ -95,9 +95,14 @@ class MockRoutingEngine {
             matchedRule = { statusCode: 200, contentType: 'application/json', body: '{"message":"OK"}', delay: 0, id: null };
         }
 
-        // 4b. Expose matched log data for {{logs.*}} templates
+        // 4b. Expose matched log data for templates
+        // {{logs.*}} = oldest (first) matching log
+        // {{lastlog.*}} = newest (most recent) matching log
         if (context._matchedLog) {
             context.logs = context._matchedLog;
+        }
+        if (context._matchedLogLast) {
+            context.lastlog = context._matchedLogLast;
         }
 
         // 5. Apply delay if configured
@@ -105,8 +110,9 @@ class MockRoutingEngine {
             await new Promise(resolve => setTimeout(resolve, matchedRule.delay));
         }
 
-        // 6. Resolve template variables in body
-        const resolvedBody = templateEngine.resolve(matchedRule.body, context);
+        // 6. Resolve template variables in body (clean invisible chars that break JSON)
+        const cleanBody = (matchedRule.body || '').replace(/[\u00A0\u2000-\u200F\u2028\u2029\uFEFF]/g, ' ');
+        const resolvedBody = templateEngine.resolve(cleanBody, context);
 
         // 7. Capture request if enabled
         if (matchedRoute.captureRequests) {
@@ -140,7 +146,9 @@ class MockRoutingEngine {
     }
     tryParseJSON(str) {
         if (!str || typeof str !== 'string') return str;
-        try { return JSON.parse(str); } catch (e) { return str; }
+        // Clean non-breaking spaces and other invisible chars that break JSON.parse
+        const cleaned = str.replace(/[\u00A0\u2000-\u200F\u2028\u2029\uFEFF]/g, ' ');
+        try { return JSON.parse(cleaned); } catch (e) { return str; }
     }
 }
 

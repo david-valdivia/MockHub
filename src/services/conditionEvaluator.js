@@ -48,16 +48,17 @@ class ConditionEvaluator {
         if (!context._logs || !Array.isArray(context._logs)) return false;
         if (currentValue === undefined || currentValue === null) return false;
 
-        // _logs are sorted DESC (newest first), search from end to get the oldest match
-        const logsAsc = [...context._logs].reverse();
-        const matched = logsAsc.find(log => {
+        // _logs are sorted DESC (newest first)
+        const allMatches = context._logs.filter(log => {
             const logValue = this.getNestedValue(log, field);
             return logValue !== undefined && logValue !== null && String(logValue) === String(currentValue);
         });
 
-        if (matched) {
-            // Store the matched log so templates can reference it via {{logs.*}}
-            context._matchedLog = matched;
+        if (allMatches.length > 0) {
+            // Store first (oldest) and last (newest) matching logs
+            // _logs is DESC so: [0] = newest, [last] = oldest
+            context._matchedLog = allMatches[allMatches.length - 1]; // oldest (first occurrence)
+            context._matchedLogLast = allMatches[0]; // newest (last occurrence)
             return true;
         }
         return false;
