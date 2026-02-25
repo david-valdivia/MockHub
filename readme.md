@@ -1,228 +1,152 @@
-# Webhook Testing Server
+# MockHub
 
-A modern, scalable application for testing, debugging, and monitoring webhooks and APIs with dynamic endpoints and customizable responses. Built with a clean MVC architecture, Vue.js frontend, and English throughout.
+A configurable API mocker with dynamic routes, conditional rules, template-powered responses, and request logging. Simulate complete third-party APIs that lack test environments, redirect services to MockHub, and get realistic responses based on configurable rules.
 
-![Endpoints Panel](webhook1.png) ![Response Configuration](webhook2.png)
+**Stack:** Node.js + Express + SQLite + Socket.IO (backend) | Vue 3 + Pinia + Tailwind CSS + Vite (frontend)
 
 ## Features
 
-- ✨ Create custom endpoints on demand
-- 🔄 Real-time visualization of incoming requests
-- ⚙️ Configure responses per endpoint
-- ⏱️ Simulate network latency
-- 🔎 Detailed inspection of requests and headers
-- 💾 Data persistence with SQLite
-- 🌐 Interactive web interface
-- 🏗️ Clean MVC architecture with separation of concerns
-- ⚡ Vue.js frontend with reactive components and state management
+- **Mock Environments** — Create isolated environments with unique base paths (`/stripe`, `/twilio`, etc.)
+- **Dynamic Routes** — Define routes with Express-style path patterns (`:id`, `*wildcard`)
+- **Conditional Rules** — Match requests by headers, body, query params using 13 operators with AND/OR logic
+- **Template Responses** — Use `{{body.email}}`, `{{$uuid}}`, `{{$timestamp}}` and 30+ template variables
+- **Request Logging** — Capture and inspect every incoming request with full headers, body, and response
+- **Real-time Updates** — Socket.IO broadcasts new requests instantly to the dashboard
+- **Export/Import** — Share mock configurations as JSON files between teams
+- **Drag & Drop** — Reorder rule priority by dragging
+- **XML Support** — Parse and respond with XML bodies
+- **Log-based Templates** — Reference data from previous requests with `{{logs.*}}` and `{{lastlog.*}}`
+- **Fallback Pipes** — Chain template variables with `|` for graceful fallbacks: `{{logs.body.id|body.id|$uuid}}`
 
-## Architecture
+## How It Works
 
-This application follows a layered MVC + Service architecture:
-
-### Backend (Node.js/Express)
 ```
-src/
-├── config/          # Database and server configuration
-├── controllers/     # HTTP request handlers
-├── services/        # Business logic layer
-├── repositories/    # Data access layer
-├── models/          # Data entities and validation
-├── routes/          # API route definitions
-├── middleware/      # Cross-cutting concerns
-└── utils/           # Helper functions and utilities
+Client Request → Match Environment (by basePath) → Match Route (method + pattern)
+    → Evaluate Rules (priority order, conditions) → Resolve Template → Send Response
 ```
 
-### Frontend (Vue.js)
-```
-client/src/
-├── components/      # Reusable Vue components
-├── views/          # Page-level components
-├── stores/         # Pinia state management
-├── services/       # API clients and business logic
-├── App.vue         # Root component
-└── main.js         # Application entry point
-```
-
-### Key Components
-
-- **Models**: `Endpoint`, `Request`, `Response` entities with validation
-- **Repositories**: Database operations abstraction
-- **Services**: Business logic for endpoints, requests, and responses
-- **Controllers**: HTTP request/response handling
-- **Middleware**: Error handling and request logging
-- **Socket Service**: Real-time WebSocket notifications
+Rules are evaluated top-to-bottom. The first rule whose conditions match wins. A rule with no conditions acts as a default fallback.
 
 ## Installation
 
-### With Docker (recommended)
+### With Docker
 
-1. Make sure you have Docker installed
+```bash
+docker build -t mockhub .
+docker run -p 1995:1995 -v mockhubdata:/app/data mockhub
+```
 
-2. Build the Docker image:
-   ```bash
-   docker build -t webhook-tester .
-   ```
+### Manual
 
-3. Run the container:
-   ```bash
-   docker run -p 1994:1994 -v webhookdata:/app/data webhook-tester
-   ```
+```bash
+# Install dependencies
+npm install
+npm run client:install
 
-4. Access the application in your browser:
-   ```
-   http://localhost:1994
-   ```
+# Build frontend
+npm run client:build
 
-### Manual Installation
+# Start server
+npm start
+```
 
-1. Make sure you have Node.js installed (v14 or higher)
-
-2. Clone this repository or download the files
-
-3. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-4. Install frontend dependencies:
-   ```bash
-   npm run client:install
-   ```
-
-5. Build the frontend:
-   ```bash
-   npm run client:build
-   ```
-
-6. Start the application:
-   ```bash
-   npm start
-   ```
-
-7. Access the application in your browser:
-   ```
-   http://localhost:1994
-   ```
+Open `http://localhost:1995` in your browser.
 
 ### Development Mode
 
-For development with hot reload:
-
-1. Start the backend server (port 1995):
-   ```bash
-   npm run dev
-   ```
-
-2. In another terminal, start the Vue.js development server (port 1994):
-   ```bash
-   npm run client:dev
-   ```
-
-3. Access the development frontend:
-   ```
-   http://localhost:1994
-   ```
-
-**Note**: The frontend (port 1994) automatically proxies API calls and WebSocket connections to the backend (port 1995). Webhook URLs will correctly point to the server port (1995).
-
-## Usage
-
-### Create a New Endpoint
-
-1. Click the `+` button in the Endpoints section
-2. Enter the endpoint name (e.g., `payments`)
-3. Click "Create"
-
-This will create a new endpoint available at `http://localhost:1994/payments`
-
-### Configure Custom Responses
-
-1. Select an endpoint from the list
-2. Go to the "Configuration" tab
-3. Configure:
-    - HTTP status code (e.g., 200, 201, 400, 500)
-    - Response Content-Type
-    - Response delay (in milliseconds)
-    - Response body (JSON, text, HTML, etc.)
-4. Click "Save Configuration"
-
-### View Received Requests
-
-1. Select an endpoint from the list
-2. Go to the "Requests" tab
-3. All received requests will be displayed sorted by date
-4. Click "View Headers" to see additional details
-
-### Test the Endpoint
-
-You can send requests to the created endpoint using tools like curl, Postman, or from your application:
-
 ```bash
-# Example with curl
-curl -X POST http://localhost:1994/payments \
-  -H "Content-Type: application/json" \
-  -d '{"amount": 100, "currency": "USD"}'
+# Terminal 1 — Backend (port 1995)
+npm run dev
+
+# Terminal 2 — Frontend with hot reload (port 1994, proxies to backend)
+npm run client:dev
 ```
 
-### Integration with Your Application
+## Quick Start
 
-1. Configure your application to send requests to the endpoint URL (example: `http://localhost:1994/payments`)
-2. Received requests will automatically appear in the interface with real-time updates
+1. **Create an environment** — Click "+" and set a name and base path (e.g., `/stripe`)
+2. **Add a group** — Organize routes logically (e.g., "Payments", "Customers")
+3. **Create a route** — Set method and path pattern (e.g., `POST /charges/:id`)
+4. **Configure rules** — Add conditions and response bodies with template variables
+5. **Send requests** — `curl http://localhost:1995/stripe/charges/ch_123` and see the mock response
 
-## API Documentation
+## Condition Operators
 
-### Endpoints Management
-- `GET /api/endpoints` - List all endpoints
-- `POST /api/endpoints` - Create new endpoint
-- `DELETE /api/endpoints/:path` - Delete endpoint
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `equals` | Exact match | `body.status` equals `"active"` |
+| `not_equals` | Not equal | `headers.content-type` not_equals `"text/xml"` |
+| `contains` | Substring match | `body.email` contains `"@gmail"` |
+| `not_contains` | No substring | `body.name` not_contains `"test"` |
+| `exists` | Field is present | `headers.authorization` exists |
+| `not_exists` | Field is absent | `body.token` not_exists |
+| `gt` / `gte` / `lt` / `lte` | Numeric comparison | `body.amount` gt `"100"` |
+| `matches` | Regex match | `body.phone` matches `"^\+1\d{10}$"` |
+| `exists_in_logs` | Value seen before | `body.email` exists_in_logs (enables `{{logs.*}}`) |
+| `not_exists_in_logs` | Value never seen | `body.email` not_exists_in_logs |
 
-### Requests Management
-- `GET /api/endpoints/:path/requests` - Get requests for endpoint
-- `DELETE /api/endpoints/:path/requests/:id` - Delete specific request
-- `DELETE /api/endpoints/:path/requests` - Clear all requests for endpoint
+Conditions support **AND/OR logic**. Groups separated by OR, each group evaluated with AND.
 
-### Response Configuration
-- `GET /api/endpoints/:path/response` - Get response configuration
-- `PUT /api/endpoints/:path/response` - Update response configuration
+## Template Variables
 
-### Dynamic Webhooks
-- `ALL /:path` - Handle incoming webhook requests
+### Request Data
+`{{body.*}}`, `{{params.*}}`, `{{query.*}}`, `{{headers.*}}`, `{{method}}`
 
-## Development
+### Generated Values
+`{{$uuid}}`, `{{$timestamp}}`, `{{$date}}`, `{{$time}}`, `{{$now}}`, `{{$randomInt}}`, `{{$randomFloat}}`, `{{$randomBool}}`, `{{$randomEmail}}`, `{{$randomName}}`, `{{$randomString:N}}`, `{{$seq}}`, `{{$enum:a,b,c}}`
 
-The project uses:
-- **Express.js** for the web server
-- **Socket.IO** for real-time updates
-- **SQLite** for data persistence
-- **Bootstrap 5** for the frontend UI
+### Log References
+`{{logs.requestBody.*}}`, `{{logs.responseBody.*}}`, `{{logs.responseStatus}}`, `{{logs.timestamp}}`, `{{logs.headers.*}}` — data from the **first** matching log
 
-### Project Structure Benefits
+`{{lastlog.*}}` — same fields but from the **most recent** matching log
 
-- **Testability**: Each layer can be unit tested independently
-- **Maintainability**: Clear separation of concerns
-- **Scalability**: Easy to add new features without affecting existing code
-- **Readability**: Well-organized code structure
+### Advanced
+- **Fallback pipes:** `{{logs.body.id|body.id|"unknown"}}` — tries each, uses first non-null
+- **Repeat:** `{{$repeat:3:{"id":$i}}}` — generates repeated content with index
 
-## Use Cases
+## API Reference (v2)
 
-- Development and testing of payment integrations
-- Third-party webhook debugging
-- Testing notification systems
-- API simulation for frontend development
-- Education and demonstration of APIs
-- Load testing and performance analysis
+### Environments
+- `GET /api/v2/environments` — List all
+- `POST /api/v2/environments` — Create
+- `GET /api/v2/environments/:id` — Get one
+- `PUT /api/v2/environments/:id` — Update
+- `DELETE /api/v2/environments/:id` — Delete
+- `GET /api/v2/environments/:id/tree` — Full tree (groups + routes + rules)
+- `GET /api/v2/environments/:id/export` — Export as JSON
+- `POST /api/v2/environments/import` — Import from JSON
+
+### Groups
+- `POST /api/v2/environments/:envId/groups` — Create
+- `PUT /api/v2/groups/:id` — Update
+- `DELETE /api/v2/groups/:id` — Delete
+
+### Routes
+- `POST /api/v2/groups/:groupId/routes` — Create
+- `GET /api/v2/routes/:id` — Get with rules
+- `PUT /api/v2/routes/:id` — Update
+- `DELETE /api/v2/routes/:id` — Delete
+
+### Rules
+- `POST /api/v2/routes/:routeId/rules` — Create
+- `PUT /api/v2/rules/:id` — Update
+- `DELETE /api/v2/rules/:id` — Delete
+
+### Request Logs
+- `GET /api/v2/routes/:routeId/logs` — Get logs for route
+- `DELETE /api/v2/routes/:routeId/logs` — Clear logs
+
+## Architecture
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed system architecture, database schema, and directory structure.
 
 ## Configuration
 
-Environment variables:
-- `PORT` - Server port (default: 1994)
-- `NODE_ENV` - Environment (development/production)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `1995` | Server port |
+| `NODE_ENV` | `development` | Environment mode |
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! Please follow the established architecture patterns and ensure all code is in English.

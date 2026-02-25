@@ -5,7 +5,7 @@
         <div class="flex items-center">
           <ServerIcon class="h-8 w-8 text-white mr-3" />
           <span class="text-white text-xl font-bold">
-            Webhook Testing Server
+            MockHub
           </span>
         </div>
         

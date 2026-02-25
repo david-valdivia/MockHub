@@ -1,7 +1,7 @@
 {
-  "name": "webhook-tester-client",
-  "version": "1.0.0",
-  "description": "Vue.js client for Webhook Testing Server",
+  "name": "mockhub-client",
+  "version": "2.0.0",
+  "description": "Vue 3 frontend for MockHub — configurable API mocker",
   "main": "index.js",
   "scripts": {
     "dev": "vite",

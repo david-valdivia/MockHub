@@ -59,10 +59,10 @@ class BrowserNotificationService {
     showTestNotification() {
         if (!this.canShowNotification()) return;
 
-        const notification = new Notification('Webhook Tester', {
+        const notification = new Notification('MockHub', {
             body: 'Browser notifications are now enabled!',
             icon: '/favicon.ico',
-            tag: 'webhook-tester-test'
+            tag: 'mockhub-test'
         });
 
         setTimeout(() => {
@@ -196,7 +196,7 @@ class BrowserNotificationService {
                 enabled: this.enabled,
                 ...this.settings
             };
-            localStorage.setItem('webhook-tester-notifications', JSON.stringify(settingsToSave));
+            localStorage.setItem('mockhub-notifications', JSON.stringify(settingsToSave));
         } catch (error) {
             console.warn('Failed to save notification settings:', error);
         }
@@ -204,7 +204,7 @@ class BrowserNotificationService {
 
     loadSettings() {
         try {
-            const saved = localStorage.getItem('webhook-tester-notifications');
+            const saved = localStorage.getItem('mockhub-notifications');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this.enabled = parsed.enabled && this.permission === 'granted';
