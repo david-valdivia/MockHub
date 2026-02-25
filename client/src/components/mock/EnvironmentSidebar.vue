@@ -176,7 +176,9 @@ function copyRouteUrl(env, rt) {
   const serverPort = import.meta.env.VITE_SERVER_PORT || '1995'
   const serverHost = import.meta.env.VITE_SERVER_HOST || window.location.hostname
   const protocol = window.location.protocol
-  const url = `${protocol}//${serverHost}:${serverPort}${env.basePath}${rt.pathPattern}`
+  const basePath = env.basePath.endsWith('/') ? env.basePath.slice(0, -1) : env.basePath
+  const routePath = rt.pathPattern.startsWith('/') ? rt.pathPattern : '/' + rt.pathPattern
+  const url = `${protocol}//${serverHost}:${serverPort}${basePath}${routePath}`
   navigator.clipboard.writeText(url)
     .then(() => notificationStore.showToast('URL copied', 'success'))
     .catch(() => notificationStore.showToast('Failed to copy', 'error'))

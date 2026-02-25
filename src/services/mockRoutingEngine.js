@@ -33,10 +33,15 @@ class MockRoutingEngine {
         let matchedRoute = null;
         let params = {};
 
+        // Normalize remainingPath to always start with /
+        if (!remainingPath.startsWith('/')) remainingPath = '/' + remainingPath;
+
         for (const route of routes) {
             if (route.method !== 'ALL' && route.method !== req.method) continue;
 
-            const matchFn = match(route.pathPattern, { decode: decodeURIComponent });
+            // Normalize pathPattern to always start with /
+            const pattern = route.pathPattern.startsWith('/') ? route.pathPattern : '/' + route.pathPattern;
+            const matchFn = match(pattern, { decode: decodeURIComponent });
             const result = matchFn(remainingPath);
             if (result) {
                 matchedRoute = route;
