@@ -48,8 +48,9 @@ class ConditionEvaluator {
         if (!context._logs || !Array.isArray(context._logs)) return false;
         if (currentValue === undefined || currentValue === null) return false;
 
-        // _logs are sorted DESC (newest first), so first match = most recent
-        const matched = context._logs.find(log => {
+        // _logs are sorted DESC (newest first), search from end to get the oldest match
+        const logsAsc = [...context._logs].reverse();
+        const matched = logsAsc.find(log => {
             const logValue = this.getNestedValue(log, field);
             return logValue !== undefined && logValue !== null && String(logValue) === String(currentValue);
         });
