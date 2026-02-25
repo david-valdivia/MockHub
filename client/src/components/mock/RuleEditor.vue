@@ -25,7 +25,7 @@
       <!-- Priority -->
       <div class="grid grid-cols-3 gap-4">
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1">Priority</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Priority <span class="text-gray-400 font-normal">(lower = first)</span></label>
           <input type="number" v-model.number="form.priority" min="0" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg" />
         </div>
         <div>
@@ -75,7 +75,10 @@
 
       <!-- Body -->
       <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1">Response Body <span class="text-gray-400">(supports &#123;&#123;params.id&#125;&#125;, &#123;&#123;$uuid&#125;&#125;, etc.)</span></label>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-xs font-medium text-gray-600">Response Body <span class="text-gray-400">(supports &#123;&#123;params.id&#125;&#125;, &#123;&#123;$uuid&#125;&#125;, etc.)</span></label>
+          <button @click="beautifyBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+        </div>
         <textarea v-model="form.body" rows="6" class="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg"></textarea>
       </div>
 
@@ -152,6 +155,36 @@ function applyBulkConditions() {
   } catch (e) {
     notificationStore.showToast('Invalid JSON: ' + e.message, 'error')
   }
+}
+
+function beautifyBody() {
+  const text = form.body.trim()
+  if (!text) return
+
+  // Try JSON
+  try {
+    const parsed = JSON.parse(text)
+    form.body = JSON.stringify(parsed, null, 2)
+    notificationStore.showToast('JSON formatted', 'success')
+    return
+  } catch (e) {}
+
+  // Try XML - basic indent
+  if (text.startsWith('<')) {
+    let formatted = ''
+    let indent = 0
+    const tags = text.replace(/>\s*</g, '><').split(/(<[^>]+>)/).filter(Boolean)
+    for (const tag of tags) {
+      if (tag.match(/^<\/\w/)) indent--
+      formatted += '  '.repeat(Math.max(0, indent)) + tag.trim() + '\n'
+      if (tag.match(/^<\w[^/]*[^/]>$/)) indent++
+    }
+    form.body = formatted.trim()
+    notificationStore.showToast('XML formatted', 'success')
+    return
+  }
+
+  notificationStore.showToast('Could not detect format', 'info')
 }
 
 async function saveRule() {
