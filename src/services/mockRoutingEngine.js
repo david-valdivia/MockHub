@@ -70,6 +70,7 @@ class MockRoutingEngine {
             method: req.method,
             _logs: previousLogs.map(log => ({
                 body: log.body,
+                requestBody: log.body,
                 headers: log.headers,
                 queryParams: log.queryParams,
                 method: log.method,

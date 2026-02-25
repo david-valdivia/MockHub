@@ -224,8 +224,8 @@ const tagCategories = [
   {
     label: 'First Log — {{logs.*}} (oldest match when exists_in_logs)',
     tags: [
-      { label: '{{logs.body.*}}', value: '{{logs.body.}}', desc: 'Body field from the FIRST matching log', example: '{{logs.body.email}} → first request email', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
-      { label: '{{logs.responseBody.*}}', value: '{{logs.responseBody.}}', desc: 'Navigate the FIRST response body (parsed JSON)', example: '{{logs.responseBody.data.id}} → original ID', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.requestBody.*}}', value: '{{logs.requestBody.}}', desc: 'Request body from the FIRST matching log', example: '{{logs.requestBody.email}} → first request email', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.responseBody.*}}', value: '{{logs.responseBody.}}', desc: 'Response body from the FIRST match (parsed JSON)', example: '{{logs.responseBody.data.id}} → original ID', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
       { label: '{{logs.responseStatus}}', value: '{{logs.responseStatus}}', desc: 'HTTP status from the FIRST match', example: '→ 200', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
       { label: '{{logs.timestamp}}', value: '{{logs.timestamp}}', desc: 'When the FIRST matching request arrived', example: '→ 2026-02-25 19:02:39', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
       { label: '{{logs.headers.*}}', value: '{{logs.headers.}}', desc: 'Header from the FIRST matching log', example: '{{logs.headers.user-agent}}', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
@@ -234,8 +234,8 @@ const tagCategories = [
   {
     label: 'Last Log — {{lastlog.*}} (newest match when exists_in_logs)',
     tags: [
-      { label: '{{lastlog.body.*}}', value: '{{lastlog.body.}}', desc: 'Body field from the MOST RECENT matching log', example: '{{lastlog.body.email}} → latest request email', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
-      { label: '{{lastlog.responseBody.*}}', value: '{{lastlog.responseBody.}}', desc: 'Navigate the MOST RECENT response body (parsed JSON)', example: '{{lastlog.responseBody.data.id}} → latest ID', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
+      { label: '{{lastlog.requestBody.*}}', value: '{{lastlog.requestBody.}}', desc: 'Request body from the MOST RECENT matching log', example: '{{lastlog.requestBody.email}} → latest request email', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
+      { label: '{{lastlog.responseBody.*}}', value: '{{lastlog.responseBody.}}', desc: 'Response body from the MOST RECENT match (parsed JSON)', example: '{{lastlog.responseBody.data.id}} → latest ID', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
       { label: '{{lastlog.responseStatus}}', value: '{{lastlog.responseStatus}}', desc: 'HTTP status from the MOST RECENT match', example: '→ 200', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
       { label: '{{lastlog.timestamp}}', value: '{{lastlog.timestamp}}', desc: 'When the MOST RECENT matching request arrived', example: '→ 2026-02-25 20:15:00', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
       { label: '{{lastlog.headers.*}}', value: '{{lastlog.headers.}}', desc: 'Header from the MOST RECENT matching log', example: '{{lastlog.headers.user-agent}}', color: 'bg-white border-orange-300 text-orange-700 hover:bg-orange-50' },
