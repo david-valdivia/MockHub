@@ -15,6 +15,7 @@ const mockRoutingEngine = require('./src/services/mockRoutingEngine');
 
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/requestLogger');
+const { xmlParser } = require('./src/middleware/xmlParser');
 
 class Application {
     constructor() {
@@ -43,6 +44,7 @@ class Application {
         this.app.use(bodyParser.urlencoded(config.bodyParser.urlencoded));
         this.app.use(bodyParser.text(config.bodyParser.text));
         this.app.use(bodyParser.raw(config.bodyParser.raw));
+        this.app.use(xmlParser);
 
         this.app.use(express.static(path.join(__dirname, 'public')));
 

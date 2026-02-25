@@ -109,7 +109,7 @@ class MockRoutingEngine {
                 path: fullPath,
                 headers: JSON.stringify(req.headers),
                 query_params: Object.keys(req.query).length > 0 ? JSON.stringify(req.query) : null,
-                body: req.body ? JSON.stringify(req.body) : null,
+                body: req.rawXmlBody ? req.rawXmlBody : (req.body ? JSON.stringify(req.body) : null),
                 matched_rule_id: matchedRule.id,
                 response_status: matchedRule.statusCode,
                 response_body: resolvedBody

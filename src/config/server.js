@@ -8,7 +8,7 @@ module.exports = {
     bodyParser: {
         json: { limit: '10mb' },
         urlencoded: { extended: true, limit: '10mb' },
-        text: { type: ['text/plain', 'text/html', 'application/xml'], limit: '10mb' },
+        text: { type: ['text/plain', 'text/html', 'application/xml', 'text/xml'], limit: '10mb' },
         raw: { limit: '10mb' }
     }
 };
