@@ -76,9 +76,34 @@
       <!-- Body -->
       <div>
         <div class="flex items-center justify-between mb-1">
-          <label class="text-xs font-medium text-gray-600">Response Body <span class="text-gray-400">(supports &#123;&#123;params.id&#125;&#125;, &#123;&#123;$uuid&#125;&#125;, etc.)</span></label>
-          <button @click="beautifyBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+          <label class="text-xs font-medium text-gray-600">Response Body</label>
+          <div class="flex items-center space-x-2">
+            <button @click="showTagPanel = !showTagPanel" class="text-xs flex items-center space-x-1" :class="showTagPanel ? 'text-rose-600' : 'text-rose-500 hover:text-rose-600'">
+              <CodeBracketIcon class="h-3 w-3" />
+              <span>Insert Tag</span>
+            </button>
+            <button @click="beautifyBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+          </div>
         </div>
+
+        <!-- Tag Reference Panel -->
+        <div v-if="showTagPanel" class="mb-2 border border-rose-200 bg-rose-50 rounded-lg p-3 space-y-2.5">
+          <div v-for="cat in tagCategories" :key="cat.label">
+            <p class="text-xs font-semibold text-gray-600 mb-1">{{ cat.label }}</p>
+            <div class="flex flex-wrap gap-1">
+              <button
+                v-for="tag in cat.tags" :key="tag.value"
+                @click="insertTag(tag.value)"
+                class="px-2 py-0.5 text-xs font-mono rounded border transition"
+                :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
+                :title="tag.desc"
+              >
+                {{ tag.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="relative border border-gray-300 rounded-lg overflow-hidden">
           <div
             ref="highlightRef"
@@ -110,10 +135,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, nextTick } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
-import { TrashIcon, ChevronDownIcon, ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, ChevronDownIcon, ClipboardDocumentIcon, CodeBracketIcon } from '@heroicons/vue/24/outline'
 import ConditionBuilder from './ConditionBuilder.vue'
 import Swal from 'sweetalert2'
 
@@ -126,6 +151,74 @@ const showBulkConditions = ref(false)
 const bulkConditionsText = ref('')
 const highlightRef = ref(null)
 const textareaRef = ref(null)
+const showTagPanel = ref(false)
+
+const tagCategories = [
+  {
+    label: 'Request Data',
+    tags: [
+      { label: '{{body.*}}', value: '{{body.}}', desc: 'Request body field (dot-notation)', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{params.*}}', value: '{{params.}}', desc: 'URL path parameter, e.g. :id', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{query.*}}', value: '{{query.}}', desc: 'Query string parameter', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{headers.*}}', value: '{{headers.}}', desc: 'Request header value', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{method}}', value: '{{method}}', desc: 'HTTP method (GET, POST, etc.)', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+    ]
+  },
+  {
+    label: 'Identifiers',
+    tags: [
+      { label: '{{$uuid}}', value: '{{$uuid}}', desc: 'Random UUID v4' },
+      { label: '{{$randomInt}}', value: '{{$randomInt}}', desc: 'Random integer 0-999999' },
+      { label: '{{$randomFloat}}', value: '{{$randomFloat}}', desc: 'Random float with 2 decimals' },
+      { label: '{{$randomString:N}}', value: '{{$randomString:16}}', desc: 'Random hex string of N chars' },
+      { label: '{{$seq}}', value: '{{$seq}}', desc: 'Auto-incrementing counter per request' },
+    ]
+  },
+  {
+    label: 'Date & Time',
+    tags: [
+      { label: '{{$timestamp}}', value: '{{$timestamp}}', desc: 'ISO 8601 datetime', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$isoDate}}', value: '{{$isoDate}}', desc: 'ISO 8601 datetime (alias)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$date}}', value: '{{$date}}', desc: 'Date only (YYYY-MM-DD)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$time}}', value: '{{$time}}', desc: 'Time only (HH:MM:SS)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$now}}', value: '{{$now}}', desc: 'Unix timestamp in ms', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+    ]
+  },
+  {
+    label: 'Random Data',
+    tags: [
+      { label: '{{$randomBool}}', value: '{{$randomBool}}', desc: 'Random true or false', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$randomEmail}}', value: '{{$randomEmail}}', desc: 'Random email address', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$randomName}}', value: '{{$randomName}}', desc: 'Random first name', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$enum:a,b,c}}', value: '{{$enum:option1,option2,option3}}', desc: 'Random pick from comma-separated values', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+    ]
+  },
+  {
+    label: 'Advanced',
+    tags: [
+      { label: '{{$repeat:N:tpl}}', value: '{{$repeat:3:{"id":$i}}}', desc: 'Repeat template N times ($i = index)', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
+    ]
+  }
+]
+
+function insertTag(tag) {
+  const ta = textareaRef.value
+  if (!ta) {
+    form.body = (form.body || '') + tag
+    return
+  }
+  const start = ta.selectionStart
+  const end = ta.selectionEnd
+  const before = form.body.substring(0, start)
+  const after = form.body.substring(end)
+  form.body = before + tag + after
+  // Place cursor right before the closing }} for path tags so user can type the field name
+  const cursorPos = tag.endsWith('.}}') ? start + tag.length - 2 : start + tag.length
+  nextTick(() => {
+    ta.focus()
+    ta.setSelectionRange(cursorPos, cursorPos)
+  })
+}
 
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
