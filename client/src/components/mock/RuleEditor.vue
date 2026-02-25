@@ -91,15 +91,20 @@
           <div v-for="cat in tagCategories" :key="cat.label">
             <p class="text-xs font-semibold text-gray-600 mb-1">{{ cat.label }}</p>
             <div class="flex flex-wrap gap-1">
-              <button
-                v-for="tag in cat.tags" :key="tag.value"
-                @click="insertTag(tag.value)"
-                class="px-2 py-0.5 text-xs font-mono rounded border transition"
-                :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
-                :title="tag.desc"
-              >
-                {{ tag.label }}
-              </button>
+              <div v-for="tag in cat.tags" :key="tag.value" class="relative group/tag">
+                <button
+                  @click="insertTag(tag.value)"
+                  class="px-2 py-0.5 text-xs font-mono rounded border transition"
+                  :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
+                >
+                  {{ tag.label }}
+                </button>
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover/tag:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                  <p class="font-medium">{{ tag.desc }}</p>
+                  <p v-if="tag.example" class="text-gray-400 font-mono mt-0.5">{{ tag.example }}</p>
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -157,46 +162,46 @@ const tagCategories = [
   {
     label: 'Request Data',
     tags: [
-      { label: '{{body.*}}', value: '{{body.}}', desc: 'Request body field (dot-notation)', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-      { label: '{{params.*}}', value: '{{params.}}', desc: 'URL path parameter, e.g. :id', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-      { label: '{{query.*}}', value: '{{query.}}', desc: 'Query string parameter', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-      { label: '{{headers.*}}', value: '{{headers.}}', desc: 'Request header value', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-      { label: '{{method}}', value: '{{method}}', desc: 'HTTP method (GET, POST, etc.)', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{body.*}}', value: '{{body.}}', desc: 'Request body field (dot-notation)', example: '{{body.email}} → user@test.com', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{params.*}}', value: '{{params.}}', desc: 'URL path parameter from :param', example: '/users/:id → {{params.id}} → 42', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{query.*}}', value: '{{query.}}', desc: 'Query string parameter', example: '?page=3 → {{query.page}} → 3', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{headers.*}}', value: '{{headers.}}', desc: 'Request header value', example: '{{headers.authorization}} → Bearer xxx', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
+      { label: '{{method}}', value: '{{method}}', desc: 'HTTP method of the request', example: '{{method}} → POST', color: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
     ]
   },
   {
     label: 'Identifiers',
     tags: [
-      { label: '{{$uuid}}', value: '{{$uuid}}', desc: 'Random UUID v4' },
-      { label: '{{$randomInt}}', value: '{{$randomInt}}', desc: 'Random integer 0-999999' },
-      { label: '{{$randomFloat}}', value: '{{$randomFloat}}', desc: 'Random float with 2 decimals' },
-      { label: '{{$randomString:N}}', value: '{{$randomString:16}}', desc: 'Random hex string of N chars' },
-      { label: '{{$seq}}', value: '{{$seq}}', desc: 'Auto-incrementing counter per request' },
+      { label: '{{$uuid}}', value: '{{$uuid}}', desc: 'Random UUID v4', example: '→ 550e8400-e29b-41d4-a716-446655440000' },
+      { label: '{{$randomInt}}', value: '{{$randomInt}}', desc: 'Random integer 0-999999', example: '→ 847293' },
+      { label: '{{$randomFloat}}', value: '{{$randomFloat}}', desc: 'Random float with 2 decimals', example: '→ 482.37' },
+      { label: '{{$randomString:N}}', value: '{{$randomString:16}}', desc: 'Random hex string of N chars', example: '→ a3f8c2e1b9d04f67' },
+      { label: '{{$seq}}', value: '{{$seq}}', desc: 'Auto-incrementing counter per request', example: '→ 1, 2, 3...' },
     ]
   },
   {
     label: 'Date & Time',
     tags: [
-      { label: '{{$timestamp}}', value: '{{$timestamp}}', desc: 'ISO 8601 datetime', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-      { label: '{{$isoDate}}', value: '{{$isoDate}}', desc: 'ISO 8601 datetime (alias)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-      { label: '{{$date}}', value: '{{$date}}', desc: 'Date only (YYYY-MM-DD)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-      { label: '{{$time}}', value: '{{$time}}', desc: 'Time only (HH:MM:SS)', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-      { label: '{{$now}}', value: '{{$now}}', desc: 'Unix timestamp in ms', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$timestamp}}', value: '{{$timestamp}}', desc: 'ISO 8601 full datetime', example: '→ 2026-02-25T14:30:00.000Z', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$isoDate}}', value: '{{$isoDate}}', desc: 'ISO 8601 datetime (alias)', example: '→ 2026-02-25T14:30:00.000Z', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$date}}', value: '{{$date}}', desc: 'Date only YYYY-MM-DD', example: '→ 2026-02-25', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$time}}', value: '{{$time}}', desc: 'Time only HH:MM:SS', example: '→ 14:30:00', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
+      { label: '{{$now}}', value: '{{$now}}', desc: 'Unix timestamp in milliseconds', example: '→ 1772150400000', color: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
     ]
   },
   {
     label: 'Random Data',
     tags: [
-      { label: '{{$randomBool}}', value: '{{$randomBool}}', desc: 'Random true or false', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
-      { label: '{{$randomEmail}}', value: '{{$randomEmail}}', desc: 'Random email address', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
-      { label: '{{$randomName}}', value: '{{$randomName}}', desc: 'Random first name', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
-      { label: '{{$enum:a,b,c}}', value: '{{$enum:option1,option2,option3}}', desc: 'Random pick from comma-separated values', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$randomBool}}', value: '{{$randomBool}}', desc: 'Random true or false', example: '→ true', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$randomEmail}}', value: '{{$randomEmail}}', desc: 'Random email address', example: '→ user48271@example.com', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$randomName}}', value: '{{$randomName}}', desc: 'Random first name from a preset list', example: '→ Alice, Carlos, Diana...', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
+      { label: '{{$enum:a,b,c}}', value: '{{$enum:option1,option2,option3}}', desc: 'Random pick from your comma-separated values', example: '{{$enum:active,pending,closed}} → pending', color: 'bg-white border-amber-300 text-amber-700 hover:bg-amber-50' },
     ]
   },
   {
     label: 'Advanced',
     tags: [
-      { label: '{{$repeat:N:tpl}}', value: '{{$repeat:3:{"id":$i}}}', desc: 'Repeat template N times ($i = index)', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
+      { label: '{{$repeat:N:tpl}}', value: '{{$repeat:3:{"id":$i}}}', desc: 'Repeat a template N times. Use $i for index', example: '{{$repeat:2:item_$i}} → item_0,item_1', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
     ]
   }
 ]
@@ -207,17 +212,16 @@ function insertTag(tag) {
     form.body = (form.body || '') + tag
     return
   }
-  const start = ta.selectionStart
-  const end = ta.selectionEnd
-  const before = form.body.substring(0, start)
-  const after = form.body.substring(end)
-  form.body = before + tag + after
-  // Place cursor right before the closing }} for path tags so user can type the field name
-  const cursorPos = tag.endsWith('.}}') ? start + tag.length - 2 : start + tag.length
-  nextTick(() => {
-    ta.focus()
-    ta.setSelectionRange(cursorPos, cursorPos)
-  })
+  ta.focus()
+  // Use execCommand to preserve native undo history (Ctrl+Z)
+  document.execCommand('insertText', false, tag)
+  // For path tags, move cursor before closing }} so user can type field name
+  if (tag.endsWith('.}}')) {
+    nextTick(() => {
+      const pos = ta.selectionStart - 2
+      ta.setSelectionRange(pos, pos)
+    })
+  }
 }
 
 function escapeHtml(str) {
