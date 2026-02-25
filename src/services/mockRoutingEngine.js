@@ -75,7 +75,7 @@ class MockRoutingEngine {
                 method: log.method,
                 path: log.path,
                 responseStatus: log.responseStatus,
-                responseBody: log.responseBody,
+                responseBody: this.tryParseJSON(log.responseBody),
                 timestamp: log.timestamp
             }))
         };
@@ -137,6 +137,10 @@ class MockRoutingEngine {
         res.status(matchedRule.statusCode)
             .type(matchedRule.contentType)
             .send(resolvedBody);
+    }
+    tryParseJSON(str) {
+        if (!str || typeof str !== 'string') return str;
+        try { return JSON.parse(str); } catch (e) { return str; }
     }
 }
 
