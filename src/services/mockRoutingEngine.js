@@ -60,12 +60,21 @@ class MockRoutingEngine {
         }
 
         // 3. Build context for condition evaluation and template resolution
+        // Pre-load request logs for exists_in_logs / not_exists_in_logs conditions
+        const previousLogs = await requestLogRepository.findByRouteId(matchedRoute.id);
         const context = {
             params,
             query: req.query,
             body: req.body,
             headers: req.headers,
-            method: req.method
+            method: req.method,
+            _logs: previousLogs.map(log => ({
+                body: log.body,
+                headers: log.headers,
+                queryParams: log.queryParams,
+                method: log.method,
+                path: log.path
+            }))
         };
 
         // 4. Evaluate rules in priority order

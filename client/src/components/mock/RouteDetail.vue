@@ -207,7 +207,7 @@ RULE FORMAT:
     "conditions": [             // ALL must match (AND logic). Empty array = always matches (default rule)
       {
         "field": "<path>",      // dot-notation: headers.authorization, body.email, query.page, params.id
-        "operator": "<op>",     // equals, not_equals, contains, not_contains, exists, not_exists, gt, gte, lt, lte, matches (regex)
+        "operator": "<op>",     // equals, not_equals, contains, not_contains, exists, not_exists, gt, gte, lt, lte, matches (regex), exists_in_logs (value already seen in previous requests), not_exists_in_logs
         "value": "<value>"      // omit for exists/not_exists
       }
     ],

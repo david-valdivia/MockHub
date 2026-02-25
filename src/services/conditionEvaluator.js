@@ -35,9 +35,23 @@ class ConditionEvaluator {
                 } catch (e) {
                     return false;
                 }
+            case 'exists_in_logs':
+                return this.checkExistsInLogs(context, field, actual);
+            case 'not_exists_in_logs':
+                return !this.checkExistsInLogs(context, field, actual);
             default:
                 return false;
         }
+    }
+
+    checkExistsInLogs(context, field, currentValue) {
+        if (!context._logs || !Array.isArray(context._logs)) return false;
+        if (currentValue === undefined || currentValue === null) return false;
+
+        return context._logs.some(log => {
+            const logValue = this.getNestedValue(log, field);
+            return logValue !== undefined && logValue !== null && String(logValue) === String(currentValue);
+        });
     }
 
     getNestedValue(obj, path) {

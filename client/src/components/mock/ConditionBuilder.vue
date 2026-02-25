@@ -14,9 +14,11 @@
         <option value="lt">&lt;</option>
         <option value="lte">&lt;=</option>
         <option value="matches">regex</option>
+        <option value="exists_in_logs">exists in logs</option>
+        <option value="not_exists_in_logs">not in logs</option>
       </select>
       <input
-        v-if="!['exists', 'not_exists'].includes(condition.operator)"
+        v-if="!['exists', 'not_exists', 'exists_in_logs', 'not_exists_in_logs'].includes(condition.operator)"
         v-model="condition.value" placeholder="value"
         class="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded"
       />
