@@ -10,6 +10,8 @@ const socketService = require('./src/services/socketService');
 
 const apiRoutes = require('./src/routes/api');
 const webhookRoutes = require('./src/routes/webhook');
+const apiV2Routes = require('./src/routes/apiV2');
+const mockRoutingEngine = require('./src/services/mockRoutingEngine');
 
 const { errorHandler, notFoundHandler } = require('./src/middleware/errorHandler');
 const { requestLogger } = require('./src/middleware/requestLogger');
@@ -53,6 +55,9 @@ class Application {
         // API routes
         this.app.use('/api', apiRoutes);
 
+        // API v2 routes (MockHub)
+        this.app.use('/api/v2', apiV2Routes);
+
         // Check if Vue build exists, otherwise serve original HTML
         const vueBuildPath = path.join(__dirname, 'public-vue');
         const originalPublicPath = path.join(__dirname, 'public');
@@ -70,7 +75,10 @@ class Application {
             });
         }
 
-        // Dynamic webhook routes (must be last)
+        // Mock routing engine (must be before legacy webhook routes)
+        this.app.use((req, res, next) => mockRoutingEngine.handleRequest(req, res, next));
+
+        // Legacy webhook routes (fallback)
         this.app.use(webhookRoutes);
     }
 
