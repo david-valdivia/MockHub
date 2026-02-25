@@ -1,2 +1,7 @@
 node_modules
+client/node_modules
 npm-debug.log
+data/
+*.db
+.claude/
+docs/plans/

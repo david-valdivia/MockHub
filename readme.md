@@ -32,8 +32,18 @@ Rules are evaluated top-to-bottom. The first rule whose conditions match wins. A
 ### With Docker
 
 ```bash
+# Build
 docker build -t mockhub .
-docker run -p 1995:1995 -v mockhubdata:/app/data mockhub
+
+# Run (data persisted in volume)
+docker run -d -p 1995:1995 -v mockhubdata:/app/data --name mockhub mockhub
+
+# Stop / Start
+docker stop mockhub
+docker start mockhub
+
+# View logs
+docker logs -f mockhub
 ```
 
 ### Manual
