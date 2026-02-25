@@ -57,6 +57,67 @@ class Database {
             );
         `);
 
+        // New MockHub tables
+        await this.db.exec(`
+            CREATE TABLE IF NOT EXISTS environments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                base_path TEXT UNIQUE NOT NULL,
+                description TEXT DEFAULT '',
+                is_active INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                environment_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (environment_id) REFERENCES environments (id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS routes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER NOT NULL,
+                method TEXT NOT NULL DEFAULT 'ALL',
+                path_pattern TEXT NOT NULL,
+                capture_requests INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (group_id) REFERENCES groups (id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_id INTEGER NOT NULL,
+                priority INTEGER DEFAULT 0,
+                conditions TEXT DEFAULT '[]',
+                status_code INTEGER DEFAULT 200,
+                content_type TEXT DEFAULT 'application/json',
+                body TEXT DEFAULT '{"message":"OK"}',
+                delay INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (route_id) REFERENCES routes (id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS request_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route_id INTEGER NOT NULL,
+                environment_id INTEGER NOT NULL,
+                method TEXT NOT NULL,
+                path TEXT NOT NULL,
+                headers TEXT NOT NULL,
+                query_params TEXT,
+                body TEXT,
+                matched_rule_id INTEGER,
+                response_status INTEGER,
+                response_body TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (route_id) REFERENCES routes (id) ON DELETE CASCADE,
+                FOREIGN KEY (environment_id) REFERENCES environments (id) ON DELETE CASCADE
+            );
+        `);
+
         // Migrate existing tables to add new columns
         await this.migrateResponsesTable();
         await this.migrateRequestsTable();
