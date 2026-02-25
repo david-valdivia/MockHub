@@ -51,7 +51,46 @@ export const webhookApi = {
   updateResponseConfig: (path, config) => apiClient.put(`/endpoints/${encodeURIComponent(path)}/response`, config),
   
   // Health check
-  ping: () => apiClient.get('/health').catch(() => ({ data: { status: 'error' } }))
+  ping: () => apiClient.get('/health').catch(() => ({ data: { status: 'error' } })),
+
+  // MockHub API v2
+  // Environments
+  getEnvironments: () => apiClient.get('/v2/environments'),
+  createEnvironment: (data) => apiClient.post('/v2/environments', data),
+  getEnvironment: (id) => apiClient.get(`/v2/environments/${id}`),
+  updateEnvironment: (id, data) => apiClient.put(`/v2/environments/${id}`, data),
+  deleteEnvironment: (id) => apiClient.delete(`/v2/environments/${id}`),
+  getEnvironmentTree: (id) => apiClient.get(`/v2/environments/${id}/tree`),
+
+  // Groups
+  getGroups: (envId) => apiClient.get(`/v2/environments/${envId}/groups`),
+  createGroup: (envId, data) => apiClient.post(`/v2/environments/${envId}/groups`, data),
+  updateGroup: (id, data) => apiClient.put(`/v2/groups/${id}`, data),
+  deleteGroup: (id) => apiClient.delete(`/v2/groups/${id}`),
+
+  // Routes
+  getRoutes: (groupId) => apiClient.get(`/v2/groups/${groupId}/routes`),
+  createRoute: (groupId, data) => apiClient.post(`/v2/groups/${groupId}/routes`, data),
+  getRoute: (id) => apiClient.get(`/v2/routes/${id}`),
+  updateRoute: (id, data) => apiClient.put(`/v2/routes/${id}`, data),
+  deleteRoute: (id) => apiClient.delete(`/v2/routes/${id}`),
+
+  // Rules
+  getRules: (routeId) => apiClient.get(`/v2/routes/${routeId}/rules`),
+  createRule: (routeId, data) => apiClient.post(`/v2/routes/${routeId}/rules`, data),
+  updateRule: (id, data) => apiClient.put(`/v2/rules/${id}`, data),
+  deleteRule: (id) => apiClient.delete(`/v2/rules/${id}`),
+
+  // Request Logs
+  getRouteLogs: (routeId) => apiClient.get(`/v2/routes/${routeId}/logs`),
+  clearRouteLogs: (routeId) => apiClient.delete(`/v2/routes/${routeId}/logs`),
+  getEnvironmentLogs: (envId) => apiClient.get(`/v2/environments/${envId}/logs`),
+  clearEnvironmentLogs: (envId) => apiClient.delete(`/v2/environments/${envId}/logs`),
+  deleteLog: (id) => apiClient.delete(`/v2/logs/${id}`),
+
+  // Export/Import
+  exportEnvironment: (id) => apiClient.get(`/v2/environments/${id}/export`),
+  importEnvironment: (data) => apiClient.post('/v2/environments/import', data),
 }
 
 export default apiClient
