@@ -5,15 +5,29 @@
       class="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-t-lg cursor-pointer"
       @click="expanded = !expanded"
     >
-      <div class="flex items-center space-x-3">
-        <span class="text-xs font-medium text-gray-500">Priority {{ rule.priority }}</span>
-        <span class="px-2 py-0.5 text-xs rounded" :class="rule.conditions?.length ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'">
+      <div class="flex items-center space-x-3 min-w-0">
+        <span class="text-gray-300 cursor-grab active:cursor-grabbing select-none flex-shrink-0" title="Drag to reorder">⠿</span>
+        <span class="text-xs font-medium text-gray-500 flex-shrink-0">{{ rule.priority }}</span>
+        <span v-if="rule.name" class="text-xs font-medium text-gray-700 truncate max-w-[180px]">{{ rule.name }}</span>
+        <span class="px-2 py-0.5 text-xs rounded flex-shrink-0" :class="rule.conditions?.length ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'">
           {{ rule.conditions?.length ? `${rule.conditions.length} condition(s)` : 'Default' }}
         </span>
-        <span class="text-xs text-gray-500">&rarr; {{ rule.statusCode }}</span>
+        <span class="text-xs text-gray-500 flex-shrink-0">&rarr; {{ rule.statusCode }}</span>
       </div>
       <div class="flex items-center space-x-2">
-        <button @click.stop="confirmDeleteRule" class="p-1 text-gray-400 hover:text-red-600 transition">
+        <span v-if="saving" class="flex items-center text-xs text-blue-500" title="Saving...">
+          <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        </span>
+        <span v-else-if="dirty && !saved" class="flex items-center text-xs text-amber-500" title="Unsaved changes">
+          <ExclamationCircleIcon class="h-3.5 w-3.5" />
+        </span>
+        <span v-else-if="saved && !dirty" class="flex items-center text-xs text-green-500" title="Saved">
+          <CheckCircleIcon class="h-3.5 w-3.5" />
+        </span>
+        <button @click.stop="duplicateRule" class="p-1 text-gray-400 hover:text-blue-600 transition" title="Duplicate rule">
+          <DocumentDuplicateIcon class="h-4 w-4" />
+        </button>
+        <button @click.stop="confirmDeleteRule" class="p-1 text-gray-400 hover:text-red-600 transition" title="Delete rule">
           <TrashIcon class="h-4 w-4" />
         </button>
         <ChevronDownIcon class="h-4 w-4 text-gray-400 transition-transform" :class="{ 'rotate-180': expanded }" />
@@ -22,6 +36,12 @@
 
     <!-- Rule Body (expanded) -->
     <div v-if="expanded" class="p-4 space-y-4 border-t border-gray-200">
+      <!-- Name -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Rule Name <span class="text-gray-400 font-normal">(optional)</span></label>
+        <input type="text" v-model="form.name" placeholder="e.g. Create response, Duplicate check, Default fallback..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg" />
+      </div>
+
       <!-- Priority -->
       <div class="grid grid-cols-3 gap-4">
         <div>
@@ -70,7 +90,7 @@
             <button @click="showBulkConditions = false; bulkConditionsText = ''" class="px-3 py-1 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition">Cancel</button>
           </div>
         </div>
-        <ConditionBuilder v-model="form.conditions" />
+        <ConditionBuilder v-model="form.conditions" @change="markDirty" />
       </div>
 
       <!-- Body -->
@@ -126,9 +146,12 @@
       </div>
 
       <!-- Save -->
-      <div class="flex justify-end">
-        <button @click="saveRule" :disabled="saving" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
-          {{ saving ? 'Saving...' : 'Save Rule' }}
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-gray-400">Ctrl+S to save</span>
+        <button @click="saveRule" :disabled="saving || !dirty" class="px-4 py-2 text-sm rounded-lg transition flex items-center space-x-1.5" :class="dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500'">
+          <svg v-if="saving" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          <CheckCircleIcon v-else-if="!dirty" class="h-3.5 w-3.5" />
+          <span>{{ saving ? 'Saving...' : dirty ? 'Save Rule' : 'Saved' }}</span>
         </button>
       </div>
     </div>
@@ -149,10 +172,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed, nextTick } from 'vue'
+import { ref, reactive, watch, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
-import { TrashIcon, ChevronDownIcon, ClipboardDocumentIcon, CodeBracketIcon } from '@heroicons/vue/24/outline'
+import { TrashIcon, ChevronDownIcon, ClipboardDocumentIcon, CodeBracketIcon, CheckCircleIcon, ExclamationCircleIcon, DocumentDuplicateIcon } from '@heroicons/vue/24/outline'
 import ConditionBuilder from './ConditionBuilder.vue'
 import Swal from 'sweetalert2'
 
@@ -167,6 +190,29 @@ const highlightRef = ref(null)
 const textareaRef = ref(null)
 const showTagPanel = ref(false)
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
+const dirty = ref(false)
+const saved = ref(true)
+let ignoreDirty = false
+
+// Ctrl+S handler
+function handleKeydown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (expanded.value) {
+      e.preventDefault()
+      if (dirty.value && !saving.value) {
+        saveRule()
+      }
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 
 function showTooltip(event, tag) {
   const rect = event.target.getBoundingClientRect()
@@ -323,6 +369,7 @@ function syncScroll() {
 }
 
 const form = reactive({
+  name: props.rule.name || '',
   priority: props.rule.priority,
   status_code: props.rule.statusCode,
   content_type: props.rule.contentType,
@@ -332,13 +379,30 @@ const form = reactive({
 })
 
 watch(() => props.rule, (r) => {
+  ignoreDirty = true
+  form.name = r.name || ''
   form.priority = r.priority
   form.status_code = r.statusCode
   form.content_type = r.contentType
   form.body = r.body
   form.delay = r.delay
   form.conditions = [...(r.conditions || [])]
+  dirty.value = false
+  saved.value = true
+  nextTick(() => { ignoreDirty = false })
 }, { deep: true })
+
+// Track changes to mark as dirty (must be after form declaration)
+watch(form, () => {
+  if (ignoreDirty) return
+  dirty.value = true
+  saved.value = false
+}, { deep: true })
+
+function markDirty() {
+  dirty.value = true
+  saved.value = false
+}
 
 function addCondition() {
   form.conditions.push({ field: '', operator: 'equals', value: '' })
@@ -405,11 +469,48 @@ async function saveRule() {
   try {
     saving.value = true
     await mockStore.updateRule(props.rule.id, form)
+    dirty.value = false
+    saved.value = true
     notificationStore.showToast('Rule saved', 'success')
   } catch (error) {
     notificationStore.showToast('Failed to save rule', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+async function duplicateRule() {
+  const existingNames = (mockStore.activeRoute?.rules || []).map(r => (r.name || '').toLowerCase()).filter(Boolean)
+
+  const { value: newName } = await Swal.fire({
+    title: 'Duplicate rule',
+    input: 'text',
+    inputLabel: 'Name for the new rule',
+    inputValue: props.rule.name ? `${props.rule.name} (copy)` : '',
+    inputPlaceholder: 'Rule name...',
+    showCancelButton: true,
+    confirmButtonText: 'Duplicate',
+    inputValidator: (val) => {
+      if (!val || !val.trim()) return 'Please enter a name'
+      if (existingNames.includes(val.trim().toLowerCase())) return 'A rule with this name already exists'
+    }
+  })
+
+  if (!newName) return
+
+  try {
+    await mockStore.createRule(props.rule.routeId, {
+      name: newName.trim(),
+      priority: props.rule.priority + 1,
+      conditions: props.rule.conditions || [],
+      status_code: props.rule.statusCode,
+      content_type: props.rule.contentType,
+      body: props.rule.body,
+      delay: props.rule.delay
+    })
+    notificationStore.showToast(`Rule duplicated: ${newName.trim()}`, 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to duplicate rule', 'error')
   }
 }
 

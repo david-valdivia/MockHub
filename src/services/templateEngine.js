@@ -85,7 +85,13 @@ class TemplateEngine {
         let current = obj;
         for (const part of parts) {
             if (current === null || current === undefined) return undefined;
-            current = current[part];
+            if (current[part] !== undefined) {
+                current = current[part];
+            } else {
+                const lower = part.toLowerCase();
+                const key = Object.keys(current).find(k => k.toLowerCase() === lower);
+                current = key !== undefined ? current[key] : undefined;
+            }
         }
         return current;
     }

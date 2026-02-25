@@ -90,6 +90,7 @@ class Database {
             CREATE TABLE IF NOT EXISTS rules (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 route_id INTEGER NOT NULL,
+                name TEXT DEFAULT '',
                 priority INTEGER DEFAULT 0,
                 conditions TEXT DEFAULT '[]',
                 status_code INTEGER DEFAULT 200,
@@ -121,6 +122,7 @@ class Database {
         // Migrate existing tables to add new columns
         await this.migrateResponsesTable();
         await this.migrateRequestsTable();
+        await this.migrateRulesTable();
     }
 
     async migrateResponsesTable() {
@@ -169,6 +171,19 @@ class Database {
         } catch (error) {
             console.error('Migration error:', error);
             // Non-fatal error - continue with app initialization
+        }
+    }
+
+    async migrateRulesTable() {
+        try {
+            const tableInfo = await this.db.all('PRAGMA table_info(rules)');
+            const columnNames = tableInfo.map(col => col.name);
+            if (!columnNames.includes('name')) {
+                console.log('Adding column name to rules table');
+                await this.db.exec(`ALTER TABLE rules ADD COLUMN name TEXT DEFAULT ''`);
+            }
+        } catch (error) {
+            console.error('Rules migration error:', error);
         }
     }
 

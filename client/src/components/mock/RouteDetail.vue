@@ -4,9 +4,15 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <span class="px-2.5 py-1 text-xs font-bold rounded" :class="methodBadge(mockStore.activeRoute.method)">
-            {{ mockStore.activeRoute.method }}
-          </span>
+          <select
+            :value="mockStore.activeRoute.method"
+            @change="changeMethod($event.target.value)"
+            class="px-2 py-1 text-xs font-bold rounded border-0 cursor-pointer appearance-none pr-5 bg-no-repeat bg-[length:12px] bg-[right_4px_center]"
+            :class="methodBadge(mockStore.activeRoute.method)"
+            style="background-image: url('data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 20 20&quot; fill=&quot;currentColor&quot;&gt;&lt;path fill-rule=&quot;evenodd&quot; d=&quot;M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z&quot; clip-rule=&quot;evenodd&quot;/&gt;&lt;/svg&gt;')"
+          >
+            <option v-for="m in ['GET','POST','PUT','PATCH','DELETE','ALL']" :key="m" :value="m">{{ m }}</option>
+          </select>
           <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern }}</span>
         </div>
         <button @click="confirmDeleteRoute" class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
@@ -79,11 +85,20 @@
             </div>
           </div>
 
-          <div class="space-y-4">
-            <RuleEditor
-              v-for="rule in mockStore.activeRoute.rules" :key="rule.id"
-              :rule="rule"
-            />
+          <div class="space-y-1">
+            <div
+              v-for="(rule, index) in mockStore.activeRoute.rules" :key="rule.id"
+              draggable="true"
+              @dragstart="onDragStart(index, $event)"
+              @dragover.prevent="onDragOver(index, $event)"
+              @dragleave="onDragLeave($event)"
+              @drop="onDrop(index, $event)"
+              @dragend="onDragEnd"
+              class="transition-all"
+              :class="{ 'opacity-40': dragIndex === index, 'border-t-2 border-blue-400': dropIndex === index && dropIndex !== dragIndex }"
+            >
+              <RuleEditor :rule="rule" />
+            </div>
           </div>
           <div v-if="!mockStore.activeRoute.rules?.length" class="text-center py-8">
             <p class="text-gray-400">No rules configured</p>
@@ -114,6 +129,61 @@ const activeTab = ref('rules')
 const showBulkRules = ref(false)
 const bulkRulesText = ref('')
 
+// Drag and drop reordering
+const dragIndex = ref(null)
+const dropIndex = ref(null)
+
+function onDragStart(index, event) {
+  dragIndex.value = index
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', index)
+}
+
+function onDragOver(index, event) {
+  event.dataTransfer.dropEffect = 'move'
+  dropIndex.value = index
+}
+
+function onDragLeave(event) {
+  // Only clear if leaving the container, not entering a child
+  if (!event.currentTarget.contains(event.relatedTarget)) {
+    dropIndex.value = null
+  }
+}
+
+async function onDrop(toIndex, event) {
+  const fromIndex = dragIndex.value
+  dropIndex.value = null
+  dragIndex.value = null
+  if (fromIndex === null || fromIndex === toIndex) return
+
+  const rules = [...mockStore.activeRoute.rules]
+  const [moved] = rules.splice(fromIndex, 1)
+  rules.splice(toIndex, 0, moved)
+
+  // Update priorities to match new order
+  const updates = []
+  for (let i = 0; i < rules.length; i++) {
+    if (rules[i].priority !== i) {
+      updates.push(mockStore.updateRule(rules[i].id, { priority: i }))
+    }
+  }
+
+  if (updates.length > 0) {
+    try {
+      await Promise.all(updates)
+      notificationStore.showToast('Priorities updated', 'success')
+    } catch (e) {
+      notificationStore.showToast('Failed to reorder', 'error')
+    }
+  }
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dropIndex.value = null
+}
+
 function methodBadge(method) {
   const badges = {
     GET: 'bg-green-100 text-green-700', POST: 'bg-blue-100 text-blue-700',
@@ -121,6 +191,15 @@ function methodBadge(method) {
     DELETE: 'bg-red-100 text-red-700', ALL: 'bg-gray-100 text-gray-700'
   }
   return badges[method] || 'bg-gray-100 text-gray-700'
+}
+
+async function changeMethod(method) {
+  try {
+    await mockStore.updateRoute(mockStore.activeRoute.id, { method })
+    notificationStore.showToast(`Method changed to ${method}`, 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to change method', 'error')
+  }
 }
 
 async function addRule() {
@@ -166,12 +245,18 @@ async function applyBulkRules() {
 
     for (let i = 0; i < parsed.length; i++) {
       const r = parsed[i]
+      let body = r.body || '{"message":"OK"}'
+      // Auto-beautify JSON bodies
+      try {
+        const p = JSON.parse(body)
+        body = JSON.stringify(p, null, 2)
+      } catch (_) {}
       await mockStore.createRule(routeId, {
         priority: r.priority ?? (existingCount + i),
         conditions: r.conditions || [],
         status_code: r.status_code || 200,
         content_type: r.content_type || 'application/json',
-        body: r.body || '{"message":"OK"}',
+        body,
         delay: r.delay || 0
       })
       created++

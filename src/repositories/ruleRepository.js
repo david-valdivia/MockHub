@@ -20,8 +20,8 @@ class RuleRepository {
     async create(data) {
         const db = database.getConnection();
         const result = await db.run(
-            'INSERT INTO rules (route_id, priority, conditions, status_code, content_type, body, delay) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [data.route_id, data.priority || 0, typeof data.conditions === 'string' ? data.conditions : JSON.stringify(data.conditions || []), data.status_code || 200, data.content_type || 'application/json', data.body || '{"message":"OK"}', data.delay || 0]
+            'INSERT INTO rules (route_id, name, priority, conditions, status_code, content_type, body, delay) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [data.route_id, data.name || '', data.priority || 0, typeof data.conditions === 'string' ? data.conditions : JSON.stringify(data.conditions || []), data.status_code || 200, data.content_type || 'application/json', data.body || '{"message":"OK"}', data.delay || 0]
         );
         return this.findById(result.lastID);
     }
@@ -30,6 +30,7 @@ class RuleRepository {
         const db = database.getConnection();
         const setClauses = [];
         const values = [];
+        if (data.name !== undefined) { setClauses.push('name = ?'); values.push(data.name); }
         if (data.priority !== undefined) { setClauses.push('priority = ?'); values.push(data.priority); }
         if (data.conditions !== undefined) { setClauses.push('conditions = ?'); values.push(typeof data.conditions === 'string' ? data.conditions : JSON.stringify(data.conditions)); }
         if (data.status_code !== undefined) { setClauses.push('status_code = ?'); values.push(data.status_code); }

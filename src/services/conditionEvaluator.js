@@ -69,7 +69,14 @@ class ConditionEvaluator {
         let current = obj;
         for (const part of parts) {
             if (current === null || current === undefined) return undefined;
-            current = current[part];
+            if (current[part] !== undefined) {
+                current = current[part];
+            } else {
+                // Case-insensitive fallback (handles headers like X-Api-Key vs x-api-key)
+                const lower = part.toLowerCase();
+                const key = Object.keys(current).find(k => k.toLowerCase() === lower);
+                current = key !== undefined ? current[key] : undefined;
+            }
         }
         return current;
     }

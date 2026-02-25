@@ -71,6 +71,7 @@
                   class="flex items-center px-3 py-1.5 mx-2 ml-6 rounded cursor-pointer text-gray-600 group/rt"
                   :class="mockStore.activeRouteId === rt.id ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-50'"
                   @click="selectRoute(env.id, rt.id)"
+                  @contextmenu.prevent="openContextMenu($event, env, group, rt)"
                 >
                   <span class="text-xs font-mono font-bold mr-1.5 flex-shrink-0" :class="methodColor(rt.method)">{{ rt.method }}</span>
                   <span class="text-xs truncate flex-1">{{ rt.pathPattern }}</span>
@@ -91,6 +92,39 @@
 
     <CreateGroupModal v-if="showCreateGroupModal" :environment-id="createGroupEnvId" @close="showCreateGroupModal = false" />
     <CreateRouteModal v-if="showCreateRouteModal" :group-id="createRouteGroupId" @close="showCreateRouteModal = false" />
+
+    <!-- Route Context Menu -->
+    <Teleport to="body">
+      <div
+        v-if="ctxMenu.visible"
+        class="fixed inset-0 z-[99998]"
+        @click="closeContextMenu"
+        @contextmenu.prevent="closeContextMenu"
+      ></div>
+      <div
+        v-if="ctxMenu.visible"
+        class="fixed z-[99999] bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+        :style="{ top: ctxMenu.y + 'px', left: ctxMenu.x + 'px' }"
+      >
+        <button @click="ctxCopyUrl" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <ClipboardDocumentIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Copy URL</span>
+        </button>
+        <button @click="ctxRename" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Rename</span>
+        </button>
+        <button @click="ctxDuplicate" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <DocumentDuplicateIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Duplicate</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button @click="ctxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
+          <TrashIcon class="h-3.5 w-3.5" />
+          <span>Delete</span>
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -98,10 +132,11 @@
 import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockStore } from '@/stores/mockStore'
+import { webhookApi } from '@/services/api'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
   ChevronRightIcon, ServerIcon, FolderIcon, PlusIcon,
-  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon
+  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon, DocumentDuplicateIcon, PencilSquareIcon
 } from '@heroicons/vue/24/outline'
 import CreateGroupModal from './CreateGroupModal.vue'
 import CreateRouteModal from './CreateRouteModal.vue'
@@ -226,6 +261,104 @@ function confirmDeleteGroup(group) {
     confirmButtonText: 'Delete',
     preConfirm: async () => {
       await mockStore.deleteGroup(group.id)
+    }
+  })
+}
+
+// --- Context Menu ---
+const ctxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: null, route: null })
+
+function openContextMenu(event, env, group, rt) {
+  ctxMenu.x = event.clientX
+  ctxMenu.y = event.clientY
+  ctxMenu.env = env
+  ctxMenu.group = group
+  ctxMenu.route = rt
+  ctxMenu.visible = true
+}
+
+function closeContextMenu() {
+  ctxMenu.visible = false
+}
+
+function ctxCopyUrl() {
+  copyRouteUrl(ctxMenu.env, ctxMenu.route)
+  closeContextMenu()
+}
+
+async function ctxRename() {
+  const { route } = ctxMenu
+  closeContextMenu()
+
+  const { value: newPath } = await Swal.fire({
+    title: 'Rename route',
+    input: 'text',
+    inputLabel: 'Path pattern',
+    inputValue: route.pathPattern,
+    showCancelButton: true,
+    confirmButtonText: 'Rename',
+    inputValidator: (val) => {
+      if (!val || !val.trim()) return 'Path cannot be empty'
+    }
+  })
+
+  if (!newPath) return
+
+  try {
+    await mockStore.updateRoute(route.id, { path_pattern: newPath.trim() })
+    notificationStore.showToast('Route renamed', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to rename route', 'error')
+  }
+}
+
+async function ctxDuplicate() {
+  const { env, group, route } = ctxMenu
+  closeContextMenu()
+  try {
+    // Fetch full route with rules
+    const response = await webhookApi.getRoute(route.id)
+    const full = response.data
+
+    // Create duplicated route
+    const newRoute = await mockStore.createRoute(group.id, {
+      method: full.method,
+      path_pattern: full.pathPattern + '-copy',
+      capture_requests: full.captureRequests
+    })
+
+    // Duplicate rules
+    if (full.rules && full.rules.length > 0) {
+      for (const rule of full.rules) {
+        await mockStore.createRule(newRoute.id, {
+          priority: rule.priority,
+          conditions: rule.conditions || [],
+          status_code: rule.statusCode,
+          content_type: rule.contentType,
+          body: rule.body,
+          delay: rule.delay
+        })
+      }
+    }
+
+    notificationStore.showToast(`Route duplicated: ${full.pathPattern}-copy`, 'success')
+  } catch (error) {
+    notificationStore.showToast('Failed to duplicate route', 'error')
+  }
+}
+
+function ctxDelete() {
+  const { route } = ctxMenu
+  closeContextMenu()
+  Swal.fire({
+    title: 'Delete route?',
+    text: `Delete "${route.method} ${route.pathPattern}" and all its rules?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    confirmButtonText: 'Delete',
+    preConfirm: async () => {
+      await mockStore.deleteRoute(route.id)
     }
   })
 }

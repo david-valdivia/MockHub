@@ -2,6 +2,7 @@ class Rule {
     constructor(data) {
         this.id = data.id;
         this.routeId = data.route_id;
+        this.name = data.name || '';
         this.priority = data.priority || 0;
         this.conditions = typeof data.conditions === 'string' ? JSON.parse(data.conditions) : (data.conditions || []);
         this.statusCode = data.status_code || 200;
@@ -19,6 +20,7 @@ class Rule {
         return {
             id: this.id,
             routeId: this.routeId,
+            name: this.name,
             priority: this.priority,
             conditions: this.conditions,
             statusCode: this.statusCode,
@@ -32,6 +34,7 @@ class Rule {
     toDatabaseFormat() {
         return {
             route_id: this.routeId,
+            name: this.name,
             priority: this.priority,
             conditions: JSON.stringify(this.conditions),
             status_code: this.statusCode,
@@ -58,6 +61,7 @@ class Rule {
     static createDefault(routeId) {
         return new Rule({
             route_id: routeId,
+            name: 'Default',
             priority: 0,
             conditions: [],
             status_code: 200,
