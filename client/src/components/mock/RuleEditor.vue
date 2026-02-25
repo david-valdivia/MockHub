@@ -103,6 +103,10 @@
               <span>Insert Tag</span>
             </button>
             <button @click="beautifyBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+            <button @click="copyBody" class="text-xs text-gray-500 hover:text-gray-700 flex items-center space-x-1">
+              <ClipboardDocumentIcon class="h-3 w-3" />
+              <span>Copy</span>
+            </button>
           </div>
         </div>
 
@@ -436,6 +440,12 @@ function applyBulkConditions() {
   } catch (e) {
     notificationStore.showToast('Invalid JSON: ' + e.message, 'error')
   }
+}
+
+function copyBody() {
+  navigator.clipboard.writeText(form.body || '')
+    .then(() => notificationStore.showToast('Response body copied', 'success'))
+    .catch(() => notificationStore.showToast('Failed to copy', 'error'))
 }
 
 function beautifyBody() {

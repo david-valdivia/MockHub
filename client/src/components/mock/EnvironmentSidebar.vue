@@ -90,6 +90,32 @@
       </div>
     </div>
 
+    <!-- Documentation -->
+    <div class="flex-shrink-0 border-t border-gray-200">
+      <button
+        @click="showDocs = !showDocs"
+        class="w-full flex items-center px-4 py-2.5 text-xs text-gray-500 hover:bg-gray-50 transition"
+      >
+        <BookOpenIcon class="h-3.5 w-3.5 mr-2" />
+        <span class="font-medium">Documentation</span>
+        <ChevronRightIcon class="h-3 w-3 ml-auto transition-transform" :class="{ 'rotate-90': showDocs }" />
+      </button>
+    </div>
+
+    <!-- Docs Modal -->
+    <Teleport to="body">
+      <div v-if="showDocs" class="fixed inset-0 z-[99998] bg-black/40" @click="showDocs = false"></div>
+      <div v-if="showDocs" class="fixed inset-y-0 left-72 z-[99999] w-[480px] bg-white shadow-2xl border-r border-gray-200 flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+          <h2 class="text-base font-semibold text-gray-800">MockHub Documentation</h2>
+          <button @click="showDocs = false" class="p-1 text-gray-400 hover:text-gray-600 rounded">
+            <XMarkIcon class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto px-5 py-4 space-y-6 text-xs text-gray-700" v-html="docsHtml"></div>
+      </div>
+    </Teleport>
+
     <CreateGroupModal v-if="showCreateGroupModal" :environment-id="createGroupEnvId" @close="showCreateGroupModal = false" />
     <CreateRouteModal v-if="showCreateRouteModal" :group-id="createRouteGroupId" @close="showCreateRouteModal = false" />
 
@@ -129,14 +155,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockStore } from '@/stores/mockStore'
 import { webhookApi } from '@/services/api'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
   ChevronRightIcon, ServerIcon, FolderIcon, PlusIcon,
-  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon, DocumentDuplicateIcon, PencilSquareIcon
+  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon, DocumentDuplicateIcon, PencilSquareIcon,
+  BookOpenIcon, XMarkIcon
 } from '@heroicons/vue/24/outline'
 import CreateGroupModal from './CreateGroupModal.vue'
 import CreateRouteModal from './CreateRouteModal.vue'
@@ -150,6 +177,8 @@ const expandedEnvs = ref(new Set())
 const expandedGroups = ref(new Set())
 const envTrees = reactive({})
 
+const showDocs = ref(false)
+const docsHtml = computed(() => buildDocsHtml())
 const showCreateGroupModal = ref(false)
 const createGroupEnvId = ref(null)
 const showCreateRouteModal = ref(false)
@@ -361,5 +390,141 @@ function ctxDelete() {
       await mockStore.deleteRoute(route.id)
     }
   })
+}
+
+function buildDocsHtml() {
+  const b = (s) => s.replace(/\{\{/g, '<span class="font-mono">{{').replace(/\}\}/g, '}}</span>')
+  const sec = (title, content) => `<section><h3 class="text-sm font-bold text-gray-900 mb-2">${title}</h3>${content}</section>`
+  const h4 = (title) => `<h4 class="font-semibold text-gray-800 mt-3 mb-1">${title}</h4>`
+  const row = (col1, col2, cls = '') => `<tr class="border-b border-gray-100"><td class="py-1 font-mono ${cls}">${col1}</td><td class="py-1">${col2}</td></tr>`
+  const table = (rows) => `<table class="w-full"><tbody>${rows}</tbody></table>`
+  const tpl = (v, cls = 'text-rose-600') => `<span class="font-mono ${cls}">{{${v}}}</span>`
+
+  return `<div class="space-y-6">
+    ${sec('Overview', '<p class="leading-relaxed">MockHub is a configurable API mocker. Create <strong>Environments</strong> with a base path, organize endpoints into <strong>Groups</strong>, define <strong>Routes</strong> with path patterns, and configure <strong>Rules</strong> with conditions and dynamic response templates.</p>')}
+
+    ${sec('Structure', `<div class="bg-gray-50 rounded-lg p-3 font-mono text-[11px] leading-relaxed">
+      <div>Environment <span class="text-gray-400">(base_path: /api/v1)</span></div>
+      <div class="ml-3">└ Group <span class="text-gray-400">(Users, Products...)</span></div>
+      <div class="ml-6">└ Route <span class="text-gray-400">(POST /login, GET /:id)</span></div>
+      <div class="ml-9">└ Rule <span class="text-gray-400">(conditions → response)</span></div>
+    </div>`)}
+
+    ${sec('Path Patterns', `<p class="mb-2">Routes use Express-style path patterns:</p>
+      ${table(
+        row('/users', 'Exact match', 'text-purple-700') +
+        row('/users/:id', 'Named param → params.id', 'text-purple-700') +
+        row('/files/:path+', 'One or more segments', 'text-purple-700') +
+        row('/files/:path*', 'Zero or more segments', 'text-purple-700')
+      )}`)}
+
+    ${sec('Rules', `<p class="leading-relaxed">Rules are evaluated in <strong>priority order</strong> (lower = first). First match wins. No match → default 200 OK.</p>
+      <ul class="mt-2 space-y-1 list-disc list-inside text-gray-600">
+        <li><strong>Name</strong> — optional label for the rule</li>
+        <li><strong>Priority</strong> — lower = evaluated first. Drag to reorder</li>
+        <li><strong>Conditions</strong> — AND/OR logic (click toggle between conditions)</li>
+        <li><strong>Response</strong> — status code, content type, body with templates, delay</li>
+        <li><strong>Ctrl+S</strong> — quick save when rule is expanded</li>
+      </ul>`)}
+
+    ${sec('Condition Operators', table(
+      row('equals', 'Exact string match', 'text-blue-700') +
+      row('not_equals', 'Does not equal', 'text-blue-700') +
+      row('contains', 'String contains value', 'text-blue-700') +
+      row('not_contains', 'String does not contain', 'text-blue-700') +
+      row('exists', 'Field is present and not null', 'text-blue-700') +
+      row('not_exists', 'Field is absent or null', 'text-blue-700') +
+      row('gt / gte / lt / lte', 'Numeric comparisons', 'text-blue-700') +
+      row('matches', 'Regular expression match', 'text-blue-700') +
+      row('exists_in_logs', 'Value was seen in previous request logs', 'text-cyan-700') +
+      row('not_exists_in_logs', 'Value NOT seen in previous logs', 'text-cyan-700')
+    ))}
+
+    ${sec('Condition Fields', `<p class="mb-2">Dot-notation for nested values. Headers are <strong>case-insensitive</strong>.</p>
+      ${table(
+        row('body.email', 'Request body field', 'text-green-700') +
+        row('body.user.name', 'Nested body field', 'text-green-700') +
+        row('params.id', 'URL path parameter', 'text-green-700') +
+        row('query.page', 'Query string parameter', 'text-green-700') +
+        row('headers.authorization', 'Request header', 'text-blue-700') +
+        row('method', 'HTTP method (GET, POST...)', 'text-purple-700')
+      )}`)}
+
+    ${sec('AND/OR Logic', `<p class="leading-relaxed">Click the <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full">AND</span> / <span class="inline-block px-1.5 py-0.5 text-[10px] font-bold bg-orange-100 text-orange-700 rounded-full">OR</span> toggle between conditions:</p>
+      <div class="bg-gray-50 rounded-lg p-3 font-mono text-[11px] mt-2">
+        <div>A <span class="text-blue-600 font-bold">AND</span> B <span class="text-orange-600 font-bold">OR</span> C <span class="text-blue-600 font-bold">AND</span> D</div>
+        <div class="text-gray-500 mt-1">= (A AND B) OR (C AND D)</div>
+      </div>`)}
+
+    ${sec('Template Variables', `<p class="mb-2">Use <code class="px-1 py-0.5 bg-gray-100 rounded">{{}}</code> in response bodies. Supports fallback pipes: <code class="px-1 py-0.5 bg-gray-100 rounded">{{a|b|"default"}}</code></p>
+
+      ${h4('Request Data')}
+      ${table(
+        row('{{body.field}}', 'Request body value', 'text-green-700') +
+        row('{{params.id}}', 'URL path parameter', 'text-green-700') +
+        row('{{query.param}}', 'Query string value', 'text-green-700') +
+        row('{{headers.x-api-key}}', 'Header value', 'text-green-700') +
+        row('{{method}}', 'HTTP method', 'text-green-700')
+      )}
+
+      ${h4('Identifiers')}
+      ${table(
+        row('{{$uuid}}', 'Random UUID v4', 'text-rose-600') +
+        row('{{$randomInt}}', 'Random integer 0-999999', 'text-rose-600') +
+        row('{{$randomFloat}}', 'Random float (2 decimals)', 'text-rose-600') +
+        row('{{$randomString:16}}', 'Random hex string of N chars', 'text-rose-600') +
+        row('{{$seq}}', 'Auto-incrementing counter', 'text-rose-600')
+      )}
+
+      ${h4('Date & Time')}
+      ${table(
+        row('{{$timestamp}}', 'ISO 8601 datetime', 'text-blue-600') +
+        row('{{$date}}', 'YYYY-MM-DD', 'text-blue-600') +
+        row('{{$time}}', 'HH:MM:SS', 'text-blue-600') +
+        row('{{$now}}', 'Unix timestamp (ms)', 'text-blue-600')
+      )}
+
+      ${h4('Random Data')}
+      ${table(
+        row('{{$randomBool}}', 'true or false', 'text-amber-600') +
+        row('{{$randomEmail}}', 'Random email', 'text-amber-600') +
+        row('{{$randomName}}', 'Random name', 'text-amber-600') +
+        row('{{$enum:a,b,c}}', 'Random pick from list', 'text-amber-600')
+      )}
+
+      ${h4('Log Data (requires exists_in_logs)')}
+      ${table(
+        row('{{logs.requestBody.*}}', 'First (oldest) matching log request', 'text-cyan-700') +
+        row('{{logs.responseBody.*}}', 'First matching log response (parsed)', 'text-cyan-700') +
+        row('{{logs.responseStatus}}', 'First matching log status', 'text-cyan-700') +
+        row('{{lastlog.requestBody.*}}', 'Last (newest) matching log request', 'text-orange-700') +
+        row('{{lastlog.responseBody.*}}', 'Last matching log response', 'text-orange-700') +
+        row('{{lastlog.timestamp}}', 'Last matching log timestamp', 'text-orange-700')
+      )}
+
+      ${h4('Advanced')}
+      ${table(
+        row('{{a|b|"fallback"}}', 'Pipe: try each, use first non-null', 'text-purple-700') +
+        row('{{$repeat:3:item_$i}}', 'Repeat template N times ($i = index)', 'text-purple-700')
+      )}`)}
+
+    ${sec('Keyboard Shortcuts', table(
+      row('<kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+S</kbd>', 'Save expanded rule', '') +
+      row('<kbd class="px-1.5 py-0.5 bg-gray-100 rounded text-[10px] font-mono">Ctrl+Z</kbd>', 'Undo in response body editor', '')
+    ))}
+
+    ${sec('Tips', `<ul class="space-y-1.5 list-disc list-inside text-gray-600">
+      <li><strong>Right-click</strong> routes in sidebar for copy URL, rename, duplicate, delete</li>
+      <li><strong>Drag</strong> rules to reorder priorities</li>
+      <li><strong>Beautify</strong> button formats JSON/XML in response body</li>
+      <li><strong>Insert Tag</strong> panel provides clickable template variables</li>
+      <li><strong>Copy AI Instructions</strong> generates a prompt for AI to create rules</li>
+      <li><strong>Bulk Add Rules</strong> imports JSON array of rules</li>
+      <li><strong>Export/Import</strong> environments as JSON files</li>
+      <li>Supports both <strong>JSON</strong> and <strong>XML</strong> request/response bodies</li>
+      <li>Header matching is <strong>case-insensitive</strong> (X-Api-Key = x-api-key)</li>
+      <li><strong>Capture Requests</strong> logs all incoming requests for debugging</li>
+    </ul>`)}
+  </div>`
 }
 </script>

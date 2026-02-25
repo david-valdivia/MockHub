@@ -35,6 +35,7 @@ class ExportImportController {
                         path_pattern: route.pathPattern,
                         capture_requests: route.captureRequests,
                         rules: rules.map(r => ({
+                            name: r.name || '',
                             priority: r.priority,
                             conditions: r.conditions,
                             response: {
@@ -98,6 +99,7 @@ class ExportImportController {
                     for (const ruleData of (routeData.rules || [])) {
                         await ruleRepo.create({
                             route_id: route.id,
+                            name: ruleData.name || '',
                             priority: ruleData.priority || 0,
                             conditions: ruleData.conditions || [],
                             status_code: ruleData.response?.status_code || 200,

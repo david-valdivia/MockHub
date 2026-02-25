@@ -220,6 +220,7 @@ async function addRule() {
 
 function copyAllRules() {
   const rules = (mockStore.activeRoute.rules || []).map(r => ({
+    name: r.name || '',
     priority: r.priority,
     conditions: r.conditions || [],
     status_code: r.statusCode,
@@ -252,6 +253,7 @@ async function applyBulkRules() {
         body = JSON.stringify(p, null, 2)
       } catch (_) {}
       await mockStore.createRule(routeId, {
+        name: r.name || '',
         priority: r.priority ?? (existingCount + i),
         conditions: r.conditions || [],
         status_code: r.status_code || 200,
@@ -273,6 +275,7 @@ async function applyBulkRules() {
 function copyAIInstructions() {
   const route = mockStore.activeRoute
   const existingRules = (route.rules || []).map(r => ({
+    name: r.name || '',
     priority: r.priority,
     conditions: r.conditions || [],
     status_code: r.statusCode,
@@ -288,17 +291,19 @@ ROUTE: ${route.method} ${route.pathPattern}
 RULE FORMAT:
 [
   {
+    "name": "<string>",         // descriptive name for the rule
     "priority": <number>,       // lower = evaluated first
-    "conditions": [             // ALL must match (AND logic). Empty array = always matches (default rule)
+    "conditions": [             // Supports AND/OR logic. Empty array = always matches (default rule)
       {
         "field": "<path>",      // dot-notation: headers.authorization, body.email, query.page, params.id
         "operator": "<op>",     // equals, not_equals, contains, not_contains, exists, not_exists, gt, gte, lt, lte, matches (regex), exists_in_logs (value already seen in previous requests), not_exists_in_logs
-        "value": "<value>"      // omit for exists/not_exists
+        "value": "<value>",     // omit for exists/not_exists
+        "logic": "and"|"or"     // connector to previous condition (default: "and"). Groups split by "or", each group uses AND
       }
     ],
     "status_code": <number>,    // HTTP status code
     "content_type": "<mime>",   // application/json, text/plain, application/xml, text/html
-    "body": "<string>",         // response body (JSON must be escaped string). Supports template variables: {{params.id}}, {{body.field}}, {{query.param}}, {{headers.x}}, {{$timestamp}}, {{$uuid}}, {{logs.body.*}} (data from last matching log when using exists_in_logs), {{logs.responseBody}}, {{logs.timestamp}}
+    "body": "<string>",         // response body (JSON must be escaped string). Supports template variables: {{params.id}}, {{body.field}}, {{query.param}}, {{headers.x}}, {{$timestamp}}, {{$uuid}}, {{logs.body.*}} (data from first matching log when using exists_in_logs), {{lastlog.*}} (most recent), {{a|b|"fallback"}} (pipe fallback)
     "delay": <ms>               // response delay in milliseconds
   }
 ]${existingRules.length > 0 ? `
