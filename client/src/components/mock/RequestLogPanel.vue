@@ -2,13 +2,23 @@
   <div>
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-sm font-medium text-gray-700">Captured Requests</h3>
-      <button
-        v-if="mockStore.routeLogs.length > 0"
-        @click="clearLogs"
-        class="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition"
-      >
-        Clear All
-      </button>
+      <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-1.5 text-xs text-gray-500">
+          <span>Format:</span>
+          <select v-model="displayFormat" class="px-1.5 py-0.5 text-xs border border-gray-300 rounded">
+            <option value="auto">Auto</option>
+            <option value="json">JSON</option>
+            <option value="xml">XML</option>
+          </select>
+        </div>
+        <button
+          v-if="mockStore.routeLogs.length > 0"
+          @click="clearLogs"
+          class="px-3 py-1.5 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition"
+        >
+          Clear All
+        </button>
+      </div>
     </div>
 
     <div v-if="mockStore.routeLogs.length === 0" class="text-center py-8">
@@ -28,19 +38,19 @@
         <div v-if="expandedLogs.has(log.id)" class="p-4 border-t border-gray-200 space-y-3">
           <div>
             <p class="text-xs font-medium text-gray-500 mb-1">Headers</p>
-            <pre class="text-xs bg-gray-100 rounded p-2 overflow-auto max-h-32">{{ JSON.stringify(log.headers, null, 2) }}</pre>
+            <SyntaxHighlighter :content="log.headers" format="json" max-height="max-h-32" />
           </div>
           <div v-if="log.queryParams">
             <p class="text-xs font-medium text-gray-500 mb-1">Query Params</p>
-            <pre class="text-xs bg-gray-100 rounded p-2 overflow-auto max-h-32">{{ JSON.stringify(log.queryParams, null, 2) }}</pre>
+            <SyntaxHighlighter :content="log.queryParams" format="json" max-height="max-h-32" />
           </div>
           <div v-if="log.body">
-            <p class="text-xs font-medium text-gray-500 mb-1">Body</p>
-            <pre class="text-xs bg-gray-100 rounded p-2 overflow-auto max-h-32">{{ JSON.stringify(log.body, null, 2) }}</pre>
+            <p class="text-xs font-medium text-gray-500 mb-1">Request Body</p>
+            <SyntaxHighlighter :content="log.body" :format="displayFormat" max-height="max-h-32" />
           </div>
           <div v-if="log.responseBody">
             <p class="text-xs font-medium text-gray-500 mb-1">Response Body</p>
-            <pre class="text-xs bg-blue-50 rounded p-2 overflow-auto max-h-32">{{ log.responseBody }}</pre>
+            <SyntaxHighlighter :content="log.responseBody" :format="displayFormat" bg="blue" max-height="max-h-48" />
           </div>
         </div>
       </div>
@@ -52,11 +62,13 @@
 import { ref } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
+import SyntaxHighlighter from './SyntaxHighlighter.vue'
 import Swal from 'sweetalert2'
 
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const expandedLogs = ref(new Set())
+const displayFormat = ref('auto')
 
 function toggleLog(id) {
   if (expandedLogs.value.has(id)) {

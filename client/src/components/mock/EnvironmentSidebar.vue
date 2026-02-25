@@ -68,12 +68,19 @@
               <div v-if="expandedGroups.has(group.id)">
                 <div
                   v-for="rt in group.routes" :key="rt.id"
-                  class="flex items-center px-3 py-1.5 mx-2 ml-6 rounded cursor-pointer text-gray-600"
+                  class="flex items-center px-3 py-1.5 mx-2 ml-6 rounded cursor-pointer text-gray-600 group/rt"
                   :class="mockStore.activeRouteId === rt.id ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-50'"
                   @click="selectRoute(env.id, rt.id)"
                 >
                   <span class="text-xs font-mono font-bold mr-1.5 flex-shrink-0" :class="methodColor(rt.method)">{{ rt.method }}</span>
-                  <span class="text-xs truncate">{{ rt.pathPattern }}</span>
+                  <span class="text-xs truncate flex-1">{{ rt.pathPattern }}</span>
+                  <button
+                    @click.stop="copyRouteUrl(env, rt)"
+                    class="p-0.5 text-gray-400 hover:text-blue-600 opacity-0 group-hover/rt:opacity-100 transition-opacity flex-shrink-0"
+                    title="Copy mock URL"
+                  >
+                    <ClipboardDocumentIcon class="h-3 w-3" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -94,7 +101,7 @@ import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
   ChevronRightIcon, ServerIcon, FolderIcon, PlusIcon,
-  ArrowDownTrayIcon, TrashIcon
+  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon
 } from '@heroicons/vue/24/outline'
 import CreateGroupModal from './CreateGroupModal.vue'
 import CreateRouteModal from './CreateRouteModal.vue'
@@ -163,6 +170,16 @@ function addGroup(env) {
 function addRoute(group) {
   createRouteGroupId.value = group.id
   showCreateRouteModal.value = true
+}
+
+function copyRouteUrl(env, rt) {
+  const serverPort = import.meta.env.VITE_SERVER_PORT || '1995'
+  const serverHost = import.meta.env.VITE_SERVER_HOST || window.location.hostname
+  const protocol = window.location.protocol
+  const url = `${protocol}//${serverHost}:${serverPort}${env.basePath}${rt.pathPattern}`
+  navigator.clipboard.writeText(url)
+    .then(() => notificationStore.showToast('URL copied', 'success'))
+    .catch(() => notificationStore.showToast('Failed to copy', 'error'))
 }
 
 async function doExport(env) {
