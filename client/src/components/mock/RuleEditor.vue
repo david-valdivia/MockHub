@@ -237,6 +237,8 @@ const tagCategories = [
   {
     label: 'Advanced',
     tags: [
+      { label: 'a|b (fallback)', value: '|', desc: 'Pipe: if left side is null/undefined, try right side. Chain multiple with |', example: '{{logs.body.id|body.id|$uuid}} → tries each', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
+      { label: '"literal"', value: '|"default"', desc: 'Quoted literal as final fallback value', example: '{{logs.body.x|"N/A"}} → N/A if no log', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
       { label: '{{$repeat:N:tpl}}', value: '{{$repeat:3:{"id":$i}}}', desc: 'Repeat a template N times. Use $i for index', example: '{{$repeat:2:item_$i}} → item_0,item_1', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
     ]
   }
