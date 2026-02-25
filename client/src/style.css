@@ -1,9 +1,2 @@
-/* Custom styles for dropdown */
-.dropdown-menu {
-  display: none;
-  z-index: 9999;
-}
-
-.dropdown-menu.show {
-  display: block;
-}
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
