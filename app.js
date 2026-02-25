@@ -65,7 +65,8 @@ class Application {
         if (require('fs').existsSync(vueBuildPath)) {
             // Serve Vue.js build
             this.app.use(express.static(vueBuildPath));
-            this.app.get('/', (req, res) => {
+            // SPA fallback: serve index.html for frontend routes
+            this.app.get(/^\/(mock(\/.*)?)?$/, (req, res) => {
                 res.sendFile(path.join(vueBuildPath, 'index.html'));
             });
         } else {
