@@ -72,7 +72,7 @@
       <!-- Conditions -->
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-medium text-gray-600">Conditions (all must match)</label>
+          <label class="text-xs font-medium text-gray-600">Conditions <span class="text-gray-400 font-normal">(AND/OR logic)</span></label>
           <div class="flex items-center space-x-2">
             <button v-if="form.conditions.length > 0" @click="copyConditions" class="text-xs text-gray-500 hover:text-gray-700 flex items-center space-x-1" title="Copy conditions as JSON">
               <ClipboardDocumentIcon class="h-3 w-3" />
@@ -148,7 +148,7 @@
       <!-- Save -->
       <div class="flex items-center justify-between">
         <span class="text-xs text-gray-400">Ctrl+S to save</span>
-        <button @click="saveRule" :disabled="saving || !dirty" class="px-4 py-2 text-sm rounded-lg transition flex items-center space-x-1.5" :class="dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500'">
+        <button @click="saveRule" :disabled="saving" class="px-4 py-2 text-sm rounded-lg transition flex items-center space-x-1.5" :class="dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'">
           <svg v-if="saving" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
           <CheckCircleIcon v-else-if="!dirty" class="h-3.5 w-3.5" />
           <span>{{ saving ? 'Saving...' : dirty ? 'Save Rule' : 'Saved' }}</span>
@@ -400,12 +400,15 @@ watch(form, () => {
 }, { deep: true })
 
 function markDirty() {
-  dirty.value = true
-  saved.value = false
+  nextTick(() => {
+    dirty.value = true
+    saved.value = false
+  })
 }
 
 function addCondition() {
   form.conditions.push({ field: '', operator: 'equals', value: '' })
+  markDirty()
 }
 
 function copyConditions() {

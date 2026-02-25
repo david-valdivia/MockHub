@@ -1,6 +1,20 @@
 <template>
   <div class="space-y-2">
-    <div v-for="(condition, index) in modelValue" :key="index" class="space-y-1">
+    <div v-for="(condition, index) in modelValue" :key="index">
+      <!-- AND/OR toggle between conditions -->
+      <div v-if="index > 0" class="flex items-center justify-center py-1">
+        <div class="flex-1 border-t border-gray-200"></div>
+        <button
+          @click="toggleLogic(index)"
+          class="mx-3 px-3 py-0.5 text-[10px] font-bold rounded-full border transition"
+          :class="condition.logic === 'or'
+            ? 'bg-orange-100 border-orange-300 text-orange-700 hover:bg-orange-200'
+            : 'bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200'"
+        >
+          {{ (condition.logic || 'and').toUpperCase() }}
+        </button>
+        <div class="flex-1 border-t border-gray-200"></div>
+      </div>
       <div class="flex items-center space-x-2">
         <div class="relative flex-1">
           <input
@@ -27,15 +41,15 @@
             </button>
           </div>
         </div>
-        <select v-model="condition.operator" @change="emitChange" class="px-2 py-1.5 text-xs border border-gray-300 rounded">
+        <select v-model="condition.operator" @change="emitChange" class="w-40 px-2 py-1.5 text-xs border border-gray-300 rounded flex-shrink-0">
           <option value="equals">equals</option>
           <option value="not_equals">not equals</option>
           <option value="contains">contains</option>
           <option value="not_contains">not contains</option>
           <option value="exists">exists</option>
           <option value="not_exists">not exists</option>
-          <option value="gt">></option>
-          <option value="gte">>=</option>
+          <option value="gt">&gt;</option>
+          <option value="gte">&gt;=</option>
           <option value="lt">&lt;</option>
           <option value="lte">&lt;=</option>
           <option value="matches">regex</option>
@@ -98,14 +112,14 @@ const fieldRefs = ref({})
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
 
 const allFields = [
-  { value: 'body.', desc: 'Request body field', example: 'body.email, body.user.name', color: 'text-green-700', tagColor: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-  { value: 'params.', desc: 'URL path parameter', example: 'params.id, params.slug', color: 'text-green-700', tagColor: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-  { value: 'query.', desc: 'Query string parameter', example: 'query.page, query.search', color: 'text-green-700', tagColor: 'bg-white border-green-300 text-green-700 hover:bg-green-50' },
-  { value: 'headers.', desc: 'Request header (case-insensitive)', example: 'headers.authorization, headers.x-api-key', color: 'text-blue-700', tagColor: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-  { value: 'headers.authorization', desc: 'Authorization header', example: 'Bearer token...', color: 'text-blue-700', tagColor: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-  { value: 'headers.content-type', desc: 'Content-Type header', example: 'application/json', color: 'text-blue-700', tagColor: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-  { value: 'headers.x-api-key', desc: 'API Key header', example: 'my-secret-key', color: 'text-blue-700', tagColor: 'bg-white border-blue-300 text-blue-700 hover:bg-blue-50' },
-  { value: 'method', desc: 'HTTP method', example: 'GET, POST, PUT...', color: 'text-purple-700', tagColor: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },
+  { value: 'body.', desc: 'Request body field', example: 'body.email, body.user.name', color: 'text-green-700' },
+  { value: 'params.', desc: 'URL path parameter', example: 'params.id, params.slug', color: 'text-green-700' },
+  { value: 'query.', desc: 'Query string parameter', example: 'query.page, query.search', color: 'text-green-700' },
+  { value: 'headers.', desc: 'Request header (case-insensitive)', example: 'headers.authorization, headers.x-api-key', color: 'text-blue-700' },
+  { value: 'headers.authorization', desc: 'Authorization header', example: 'Bearer token...', color: 'text-blue-700' },
+  { value: 'headers.content-type', desc: 'Content-Type header', example: 'application/json', color: 'text-blue-700' },
+  { value: 'headers.x-api-key', desc: 'API Key header', example: 'my-secret-key', color: 'text-blue-700' },
+  { value: 'method', desc: 'HTTP method', example: 'GET, POST, PUT...', color: 'text-purple-700' },
 ]
 
 const fieldTags = [
@@ -124,7 +138,14 @@ function fieldSuggestions(current) {
 }
 
 function emitChange() {
+  emit('update:modelValue', [...props.modelValue])
   emit('change')
+}
+
+function toggleLogic(index) {
+  const condition = props.modelValue[index]
+  condition.logic = (condition.logic || 'and') === 'and' ? 'or' : 'and'
+  emitChange()
 }
 
 function insertField(index, value) {
@@ -148,7 +169,6 @@ function insertTagToLast(value) {
 }
 
 function onFieldBlur() {
-  // Delay to allow mousedown on suggestion
   setTimeout(() => { activeFieldIndex.value = null }, 150)
 }
 
@@ -156,6 +176,7 @@ function removeCondition(index) {
   const updated = [...props.modelValue]
   updated.splice(index, 1)
   emit('update:modelValue', updated)
+  emit('change')
 }
 
 function showTooltip(event, tag) {

@@ -1,7 +1,21 @@
 class ConditionEvaluator {
     evaluate(conditions, context) {
         if (!conditions || conditions.length === 0) return true;
-        return conditions.every(condition => this.evaluateOne(condition, context));
+
+        // Split conditions into OR-separated groups
+        // Each group is evaluated with AND, groups are joined with OR
+        // "A AND B OR C AND D" = (A AND B) OR (C AND D)
+        const groups = [[]];
+        for (const condition of conditions) {
+            if (condition.logic === 'or') {
+                groups.push([]);
+            }
+            groups[groups.length - 1].push(condition);
+        }
+
+        return groups.some(group =>
+            group.every(condition => this.evaluateOne(condition, context))
+        );
     }
 
     evaluateOne(condition, context) {
