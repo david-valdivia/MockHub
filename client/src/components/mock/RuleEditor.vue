@@ -79,7 +79,24 @@
           <label class="text-xs font-medium text-gray-600">Response Body <span class="text-gray-400">(supports &#123;&#123;params.id&#125;&#125;, &#123;&#123;$uuid&#125;&#125;, etc.)</span></label>
           <button @click="beautifyBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
         </div>
-        <textarea v-model="form.body" rows="6" class="w-full px-3 py-2 text-sm font-mono border border-gray-300 rounded-lg"></textarea>
+        <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+          <div
+            ref="highlightRef"
+            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-gray-50"
+            style="max-height: 500px; min-height: 80px;"
+            v-html="bodyHighlighted"
+            aria-hidden="true"
+          ></div>
+          <textarea
+            ref="textareaRef"
+            v-model="form.body"
+            @input="syncScroll"
+            @scroll="syncScroll"
+            class="absolute inset-0 w-full h-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-transparent resize-none border-none outline-none"
+            style="color: transparent; caret-color: #1f2937;"
+            spellcheck="false"
+          ></textarea>
+        </div>
       </div>
 
       <!-- Save -->
@@ -93,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { TrashIcon, ChevronDownIcon, ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
@@ -107,6 +124,61 @@ const expanded = ref(false)
 const saving = ref(false)
 const showBulkConditions = ref(false)
 const bulkConditionsText = ref('')
+const highlightRef = ref(null)
+const textareaRef = ref(null)
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function highlightJson(text) {
+  return text
+    .replace(/("(?:\\.|[^"\\])*")/g, (match) => {
+      return `<span class="text-green-700">${match}</span>`
+    })
+    .replace(/<span class="text-green-700">("(?:\\.|[^"\\])*")<\/span>\s*:/g, (match, key) => {
+      return `<span class="text-purple-700">${key}</span>:`
+    })
+    .replace(/:\s*(-?\d+\.?\d*([eE][+-]?\d+)?)\b/g, (match, num) => {
+      return `: <span class="text-blue-600">${num}</span>`
+    })
+    .replace(/:\s*(true|false|null)\b/g, (match, val) => {
+      return `: <span class="text-amber-600">${val}</span>`
+    })
+    .replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
+      return `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`
+    })
+}
+
+function highlightXml(text) {
+  return text
+    .replace(/&lt;(\/?)([\w:-]+)/g, (match, slash, tag) => {
+      return `&lt;${slash}<span class="text-blue-700 font-semibold">${tag}</span>`
+    })
+    .replace(/([\w:-]+)=("(?:\\.|[^"\\])*")/g, (match, attr, val) => {
+      return `<span class="text-purple-600">${attr}</span>=<span class="text-green-700">${val}</span>`
+    })
+    .replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
+      return `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`
+    })
+}
+
+const bodyHighlighted = computed(() => {
+  const raw = form.body || ''
+  if (!raw.trim()) return '<span class="text-gray-400 italic">Empty response body</span>'
+  const escaped = escapeHtml(raw)
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return highlightJson(escaped)
+  if (trimmed.startsWith('<')) return highlightXml(escaped)
+  return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
+})
+
+function syncScroll() {
+  if (highlightRef.value && textareaRef.value) {
+    highlightRef.value.scrollTop = textareaRef.value.scrollTop
+    highlightRef.value.scrollLeft = textareaRef.value.scrollLeft
+  }
+}
 
 const form = reactive({
   priority: props.rule.priority,
