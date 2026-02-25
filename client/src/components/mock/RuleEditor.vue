@@ -222,6 +222,19 @@ const tagCategories = [
     ]
   },
   {
+    label: 'Previous Log (when exists_in_logs matches)',
+    tags: [
+      { label: '{{logs.body.*}}', value: '{{logs.body.}}', desc: 'Body field from the last matching log', example: '{{logs.body.email}} → prev request email', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.headers.*}}', value: '{{logs.headers.}}', desc: 'Header from the last matching log', example: '{{logs.headers.user-agent}} → prev UA', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.queryParams.*}}', value: '{{logs.queryParams.}}', desc: 'Query param from the last matching log', example: '{{logs.queryParams.page}} → 2', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.responseBody}}', value: '{{logs.responseBody}}', desc: 'Full response body sent in the previous match', example: '→ {"status":"created",...}', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.responseStatus}}', value: '{{logs.responseStatus}}', desc: 'HTTP status returned in the previous match', example: '→ 200', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.timestamp}}', value: '{{logs.timestamp}}', desc: 'When the previous matching request was received', example: '→ 2026-02-25 19:02:39', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.method}}', value: '{{logs.method}}', desc: 'HTTP method of the previous matching request', example: '→ POST', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+      { label: '{{logs.path}}', value: '{{logs.path}}', desc: 'Full path of the previous matching request', example: '→ /vyde/leads', color: 'bg-white border-cyan-300 text-cyan-700 hover:bg-cyan-50' },
+    ]
+  },
+  {
     label: 'Advanced',
     tags: [
       { label: '{{$repeat:N:tpl}}', value: '{{$repeat:3:{"id":$i}}}', desc: 'Repeat a template N times. Use $i for index', example: '{{$repeat:2:item_$i}} → item_0,item_1', color: 'bg-white border-purple-300 text-purple-700 hover:bg-purple-50' },

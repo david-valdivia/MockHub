@@ -73,7 +73,10 @@ class MockRoutingEngine {
                 headers: log.headers,
                 queryParams: log.queryParams,
                 method: log.method,
-                path: log.path
+                path: log.path,
+                responseStatus: log.responseStatus,
+                responseBody: log.responseBody,
+                timestamp: log.timestamp
             }))
         };
 
@@ -90,6 +93,11 @@ class MockRoutingEngine {
 
         if (!matchedRule) {
             matchedRule = { statusCode: 200, contentType: 'application/json', body: '{"message":"OK"}', delay: 0, id: null };
+        }
+
+        // 4b. Expose matched log data for {{logs.*}} templates
+        if (context._matchedLog) {
+            context.logs = context._matchedLog;
         }
 
         // 5. Apply delay if configured

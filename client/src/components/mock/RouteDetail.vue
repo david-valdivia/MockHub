@@ -213,7 +213,7 @@ RULE FORMAT:
     ],
     "status_code": <number>,    // HTTP status code
     "content_type": "<mime>",   // application/json, text/plain, application/xml, text/html
-    "body": "<string>",         // response body (JSON must be escaped string). Supports template variables: {{params.id}}, {{body.field}}, {{query.param}}, {{headers.x}}, {{$timestamp}}, {{$uuid}}
+    "body": "<string>",         // response body (JSON must be escaped string). Supports template variables: {{params.id}}, {{body.field}}, {{query.param}}, {{headers.x}}, {{$timestamp}}, {{$uuid}}, {{logs.body.*}} (data from last matching log when using exists_in_logs), {{logs.responseBody}}, {{logs.timestamp}}
     "delay": <ms>               // response delay in milliseconds
   }
 ]${existingRules.length > 0 ? `
