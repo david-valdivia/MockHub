@@ -9,6 +9,13 @@ class Rule {
         this.contentType = data.content_type || 'application/json';
         this.body = data.body || '{"message":"OK"}';
         this.delay = data.delay || 0;
+        this.webhookUrl = data.webhook_url || null;
+        this.webhookMethod = data.webhook_method || 'POST';
+        this.webhookHeaders = typeof data.webhook_headers === 'string' ? JSON.parse(data.webhook_headers || '{}') : (data.webhook_headers || {});
+        this.webhookBody = data.webhook_body || null;
+        this.webhookDelay = data.webhook_delay || 0;
+        this.webhookContentType = data.webhook_content_type || 'application/json';
+        this.webhookEnabled = data.webhook_enabled !== undefined ? !!data.webhook_enabled : true;
         this.createdAt = data.created_at;
     }
 
@@ -27,6 +34,13 @@ class Rule {
             contentType: this.contentType,
             body: this.body,
             delay: this.delay,
+            webhookUrl: this.webhookUrl,
+            webhookMethod: this.webhookMethod,
+            webhookHeaders: this.webhookHeaders,
+            webhookBody: this.webhookBody,
+            webhookDelay: this.webhookDelay,
+            webhookContentType: this.webhookContentType,
+            webhookEnabled: this.webhookEnabled,
             createdAt: this.createdAt
         };
     }
@@ -40,7 +54,14 @@ class Rule {
             status_code: this.statusCode,
             content_type: this.contentType,
             body: this.body,
-            delay: this.delay
+            delay: this.delay,
+            webhook_url: this.webhookUrl,
+            webhook_method: this.webhookMethod,
+            webhook_headers: JSON.stringify(this.webhookHeaders),
+            webhook_body: this.webhookBody,
+            webhook_delay: this.webhookDelay,
+            webhook_content_type: this.webhookContentType,
+            webhook_enabled: this.webhookEnabled ? 1 : 0
         };
     }
 

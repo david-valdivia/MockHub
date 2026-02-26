@@ -3,6 +3,8 @@ class Group {
         this.id = data.id;
         this.environmentId = data.environment_id;
         this.name = data.name;
+        this.path = data.path || '';
+        this.slug = data.slug || '';
         this.sortOrder = data.sort_order || 0;
         this.createdAt = data.created_at;
     }
@@ -16,6 +18,8 @@ class Group {
             id: this.id,
             environmentId: this.environmentId,
             name: this.name,
+            path: this.path,
+            slug: this.slug,
             sortOrder: this.sortOrder,
             createdAt: this.createdAt
         };

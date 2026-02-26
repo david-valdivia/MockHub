@@ -13,8 +13,9 @@
           >
             <option v-for="m in ['GET','POST','PUT','PATCH','DELETE','ALL']" :key="m" :value="m">{{ m }}</option>
           </select>
-          <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern }}</span>
+          <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern || '/' }}</span>
         </div>
+        <div v-if="fullUrl" class="mt-1 text-xs font-mono text-gray-400">{{ fullUrl }}</div>
         <button @click="confirmDeleteRoute" class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
           Delete Route
         </button>
@@ -115,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
@@ -126,6 +127,26 @@ import Swal from 'sweetalert2'
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const activeTab = ref('rules')
+
+const fullUrl = computed(() => {
+  const route = mockStore.activeRoute
+  const env = mockStore.activeEnvironment
+  if (!route || !env) return ''
+  // Find the group containing this route
+  let groupPath = ''
+  for (const g of (env.groups || [])) {
+    if ((g.routes || []).some(r => r.id === route.id)) {
+      groupPath = g.path || ''
+      break
+    }
+  }
+  const parts = [env.basePath || '', groupPath, route.pathPattern || ''].filter(p => p !== '')
+  let full = parts.join('/')
+  full = full.replace(/\/+/g, '/')
+  if (!full.startsWith('/')) full = '/' + full
+  if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)
+  return full || '/'
+})
 const showBulkRules = ref(false)
 const bulkRulesText = ref('')
 
@@ -219,15 +240,27 @@ async function addRule() {
 }
 
 function copyAllRules() {
-  const rules = (mockStore.activeRoute.rules || []).map(r => ({
-    name: r.name || '',
-    priority: r.priority,
-    conditions: r.conditions || [],
-    status_code: r.statusCode,
-    content_type: r.contentType,
-    body: r.body,
-    delay: r.delay
-  }))
+  const rules = (mockStore.activeRoute.rules || []).map(r => {
+    const rule = {
+      name: r.name || '',
+      priority: r.priority,
+      conditions: r.conditions || [],
+      status_code: r.statusCode,
+      content_type: r.contentType,
+      body: r.body,
+      delay: r.delay
+    }
+    if (r.webhookUrl) {
+      rule.webhook_url = r.webhookUrl
+      rule.webhook_method = r.webhookMethod
+      rule.webhook_headers = r.webhookHeaders
+      rule.webhook_body = r.webhookBody
+      rule.webhook_delay = r.webhookDelay
+      rule.webhook_content_type = r.webhookContentType
+      rule.webhook_enabled = r.webhookEnabled
+    }
+    return rule
+  })
   const json = JSON.stringify(rules, null, 2)
   navigator.clipboard.writeText(json)
     .then(() => notificationStore.showToast('Rules copied to clipboard', 'success'))
@@ -259,7 +292,14 @@ async function applyBulkRules() {
         status_code: r.status_code || 200,
         content_type: r.content_type || 'application/json',
         body,
-        delay: r.delay || 0
+        delay: r.delay || 0,
+        webhook_url: r.webhook_url || null,
+        webhook_method: r.webhook_method || 'POST',
+        webhook_headers: r.webhook_headers || {},
+        webhook_body: r.webhook_body || null,
+        webhook_delay: r.webhook_delay || 0,
+        webhook_content_type: r.webhook_content_type || 'application/json',
+        webhook_enabled: r.webhook_enabled !== undefined ? r.webhook_enabled : true
       })
       created++
     }

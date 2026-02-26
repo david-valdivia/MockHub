@@ -3,7 +3,7 @@
     <div class="px-6">
       <div class="flex justify-between items-center h-16">
         <div class="flex items-center">
-          <ServerIcon class="h-8 w-8 text-white mr-3" />
+          <img src="/favicon.png" alt="MockHub" class="h-8 w-8 mr-3 rounded" />
           <span class="text-white text-xl font-bold">
             MockHub
           </span>
@@ -84,7 +84,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useWebhookStore } from '@/stores/webhookStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
-  ServerIcon,
   CogIcon,
   BellIcon,
   BellSlashIcon,

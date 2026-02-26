@@ -129,23 +129,151 @@
           </div>
         </div>
 
-        <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+        <div class="border border-gray-300 rounded-lg overflow-hidden">
           <div
-            ref="highlightRef"
-            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-gray-50"
-            style="max-height: 500px; min-height: 80px;"
+            v-if="!bodyFocused"
+            @click="focusBody"
+            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
+            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
             v-html="bodyHighlighted"
-            aria-hidden="true"
           ></div>
           <textarea
+            v-else
             ref="textareaRef"
             v-model="form.body"
-            @input="syncScroll"
-            @scroll="syncScroll"
-            class="absolute inset-0 w-full h-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-transparent resize-none border-none outline-none"
-            style="color: transparent; caret-color: #1f2937;"
+            @blur="onBodyBlur"
+            class="w-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
+            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
             spellcheck="false"
           ></textarea>
+        </div>
+      </div>
+
+      <!-- Async Webhook Callback -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-medium text-gray-600 flex items-center space-x-1.5">
+            <span>Async Webhook Callback</span>
+            <span class="text-gray-400 font-normal">(optional — fires after response is sent)</span>
+          </label>
+          <div class="flex items-center space-x-2">
+            <label v-if="form.webhook_url" class="flex items-center cursor-pointer" title="Enable/disable callback">
+              <input type="checkbox" v-model="form.webhook_enabled" class="sr-only peer" />
+              <div class="w-7 h-4 bg-gray-300 peer-checked:bg-indigo-500 rounded-full relative transition-colors">
+                <div class="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-3"></div>
+              </div>
+            </label>
+            <button @click="showWebhook = !showWebhook" class="text-xs" :class="showWebhook || form.webhook_url ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'">
+              {{ showWebhook ? 'Hide' : (form.webhook_url ? 'Edit Callback' : '+ Add Callback') }}
+            </button>
+          </div>
+        </div>
+        <!-- Webhook summary when collapsed but configured -->
+        <div v-if="!showWebhook && form.webhook_url" class="px-3 py-2 rounded-lg text-xs flex items-center justify-between" :class="form.webhook_enabled ? 'bg-indigo-50 border border-indigo-200 text-indigo-700' : 'bg-gray-100 border border-gray-200 text-gray-400'">
+          <span class="font-mono truncate">
+            <span v-if="!form.webhook_enabled" class="text-gray-400 mr-1">[OFF]</span>
+            {{ form.webhook_method }} {{ form.webhook_url }} <span class="opacity-60">({{ form.webhook_delay }}ms delay)</span>
+          </span>
+          <button @click="clearWebhook" class="text-indigo-400 hover:text-red-500 ml-2 flex-shrink-0" title="Remove callback">
+            <TrashIcon class="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div v-if="showWebhook" class="p-3 border border-indigo-200 bg-indigo-50/50 rounded-lg space-y-3">
+          <!-- Enabled toggle -->
+          <div class="flex items-center justify-between">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" v-model="form.webhook_enabled" class="sr-only peer" />
+              <div class="w-8 h-[18px] bg-gray-300 peer-checked:bg-indigo-500 rounded-full relative transition-colors">
+                <div class="absolute top-[3px] left-[3px] w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-[14px]"></div>
+              </div>
+              <span class="text-xs font-medium" :class="form.webhook_enabled ? 'text-indigo-700' : 'text-gray-400'">
+                {{ form.webhook_enabled ? 'Enabled' : 'Disabled' }}
+              </span>
+            </label>
+            <button @click="clearWebhook" class="text-xs text-red-500 hover:text-red-700">Remove Callback</button>
+          </div>
+          <div class="grid grid-cols-12 gap-2">
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-gray-600 mb-1">Method</label>
+              <select v-model="form.webhook_method" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg">
+                <option v-for="m in ['POST','PUT','PATCH','DELETE','GET']" :key="m" :value="m">{{ m }}</option>
+              </select>
+            </div>
+            <div class="col-span-7">
+              <label class="block text-xs font-medium text-gray-600 mb-1">Callback URL <span class="text-gray-400 font-normal">(supports templates)</span></label>
+              <input type="text" v-model="form.webhook_url" placeholder="https://your-app.com/webhooks/callback" class="w-full px-2 py-1.5 text-sm font-mono border border-gray-300 rounded-lg" />
+            </div>
+            <div class="col-span-3">
+              <label class="block text-xs font-medium text-gray-600 mb-1">Delay (ms)</label>
+              <input type="number" v-model.number="form.webhook_delay" min="0" max="300000" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Content-Type</label>
+              <select v-model="form.webhook_content_type" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg">
+                <option value="application/json">application/json</option>
+                <option value="application/x-www-form-urlencoded">application/x-www-form-urlencoded</option>
+                <option value="text/plain">text/plain</option>
+                <option value="text/html">text/html</option>
+                <option value="application/xml">application/xml</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Custom Headers <span class="text-gray-400 font-normal">(JSON)</span></label>
+              <input type="text" v-model="form.webhook_headers_raw" placeholder='{"X-Webhook-Secret":"abc123"}' class="w-full px-2 py-1.5 text-xs font-mono border border-gray-300 rounded-lg" />
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-medium text-gray-600">Callback Body <span class="text-gray-400 font-normal">(supports all template variables)</span></label>
+              <div class="flex items-center space-x-2">
+                <button @click="showWebhookTagPanel = !showWebhookTagPanel" class="text-xs flex items-center space-x-1" :class="showWebhookTagPanel ? 'text-rose-600' : 'text-rose-500 hover:text-rose-600'">
+                  <CodeBracketIcon class="h-3 w-3" />
+                  <span>Insert Tag</span>
+                </button>
+                <button @click="beautifyWebhookBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+              </div>
+            </div>
+            <!-- Webhook Tag Reference Panel -->
+            <div v-if="showWebhookTagPanel" class="mb-2 border border-rose-200 bg-rose-50 rounded-lg p-3 space-y-2.5">
+              <div v-for="cat in tagCategories" :key="'wh-' + cat.label">
+                <p class="text-xs font-semibold text-gray-600 mb-1">{{ cat.label }}</p>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="tag in cat.tags" :key="'wh-' + tag.value"
+                    @click="insertWebhookTag(tag.value)"
+                    @mouseenter="showTooltip($event, tag)"
+                    @mouseleave="hideTooltip"
+                    class="px-2 py-0.5 text-xs font-mono rounded border transition"
+                    :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
+                  >
+                    {{ tag.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="border border-gray-300 rounded-lg overflow-hidden">
+              <div
+                v-if="!webhookBodyFocused"
+                @click="focusWebhookBody"
+                class="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
+                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
+                v-html="webhookBodyHighlighted"
+              ></div>
+              <textarea
+                v-else
+                ref="webhookTextareaRef"
+                v-model="form.webhook_body"
+                @blur="onWebhookBodyBlur"
+                class="w-full px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
+                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
+                spellcheck="false"
+                placeholder='{"event":"lead.created","data":{"id":"{{$uuid}}","email":"{{body.email}}"}}'
+              ></textarea>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400">Fires asynchronously after the main response. In Docker, use <code class="text-indigo-500">host.docker.internal</code> instead of <code class="text-indigo-500">localhost</code>.</p>
         </div>
       </div>
 
@@ -190,9 +318,14 @@ const expanded = ref(false)
 const saving = ref(false)
 const showBulkConditions = ref(false)
 const bulkConditionsText = ref('')
-const highlightRef = ref(null)
 const textareaRef = ref(null)
 const showTagPanel = ref(false)
+const showWebhookTagPanel = ref(false)
+const webhookTextareaRef = ref(null)
+const bodyFocused = ref(false)
+const webhookBodyFocused = ref(false)
+let lastBodyCursor = -1
+let lastWebhookBodyCursor = -1
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
 const dirty = ref(false)
 const saved = ref(true)
@@ -302,21 +435,27 @@ const tagCategories = [
 ]
 
 function insertTag(tag) {
-  const ta = textareaRef.value
-  if (!ta) {
-    form.body = (form.body || '') + tag
-    return
-  }
-  ta.focus()
-  // Use execCommand to preserve native undo history (Ctrl+Z)
-  document.execCommand('insertText', false, tag)
-  // For path tags, move cursor before closing }} so user can type field name
-  if (tag.endsWith('.}}')) {
-    nextTick(() => {
-      const pos = ta.selectionStart - 2
-      ta.setSelectionRange(pos, pos)
-    })
-  }
+  bodyFocused.value = true
+  nextTick(() => {
+    const ta = textareaRef.value
+    if (!ta) {
+      form.body = (form.body || '') + tag
+      return
+    }
+    ta.focus()
+    // Restore cursor position saved on blur
+    if (lastBodyCursor >= 0) {
+      ta.setSelectionRange(lastBodyCursor, lastBodyCursor)
+      lastBodyCursor = -1
+    }
+    document.execCommand('insertText', false, tag)
+    if (tag.endsWith('.}}')) {
+      nextTick(() => {
+        const pos = ta.selectionStart - 2
+        ta.setSelectionRange(pos, pos)
+      })
+    }
+  })
 }
 
 function escapeHtml(str) {
@@ -365,12 +504,91 @@ const bodyHighlighted = computed(() => {
   return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
 })
 
-function syncScroll() {
-  if (highlightRef.value && textareaRef.value) {
-    highlightRef.value.scrollTop = textareaRef.value.scrollTop
-    highlightRef.value.scrollLeft = textareaRef.value.scrollLeft
-  }
+function onBodyBlur() {
+  const ta = textareaRef.value
+  if (ta) lastBodyCursor = ta.selectionStart
+  bodyFocused.value = false
 }
+
+function focusBody() {
+  bodyFocused.value = true
+  nextTick(() => { textareaRef.value?.focus() })
+}
+
+const webhookBodyHighlighted = computed(() => {
+  const raw = form.webhook_body || ''
+  if (!raw.trim()) return '<span class="text-gray-400 italic">Empty callback body</span>'
+  const escaped = escapeHtml(raw)
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return highlightJson(escaped)
+  if (trimmed.startsWith('<')) return highlightXml(escaped)
+  return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
+})
+
+function onWebhookBodyBlur() {
+  const ta = webhookTextareaRef.value
+  if (ta) lastWebhookBodyCursor = ta.selectionStart
+  webhookBodyFocused.value = false
+}
+
+function focusWebhookBody() {
+  webhookBodyFocused.value = true
+  nextTick(() => { webhookTextareaRef.value?.focus() })
+}
+
+function insertWebhookTag(tag) {
+  webhookBodyFocused.value = true
+  nextTick(() => {
+    const ta = webhookTextareaRef.value
+    if (!ta) {
+      form.webhook_body = (form.webhook_body || '') + tag
+      return
+    }
+    ta.focus()
+    // Restore cursor position saved on blur
+    if (lastWebhookBodyCursor >= 0) {
+      ta.setSelectionRange(lastWebhookBodyCursor, lastWebhookBodyCursor)
+      lastWebhookBodyCursor = -1
+    }
+    document.execCommand('insertText', false, tag)
+    if (tag.endsWith('.}}')) {
+      nextTick(() => {
+        const pos = ta.selectionStart - 2
+        ta.setSelectionRange(pos, pos)
+      })
+    }
+  })
+}
+
+function beautifyWebhookBody() {
+  const text = (form.webhook_body || '').trim()
+  if (!text) return
+
+  // Try JSON (with template support)
+  const result = beautifyWithTemplates(text)
+  if (result !== null) {
+    form.webhook_body = result
+    notificationStore.showToast('JSON formatted', 'success')
+    return
+  }
+
+  if (text.startsWith('<')) {
+    let formatted = ''
+    let indent = 0
+    const tags = text.replace(/>\s*</g, '><').split(/(<[^>]+>)/).filter(Boolean)
+    for (const tag of tags) {
+      if (tag.match(/^<\/\w/)) indent--
+      formatted += '  '.repeat(Math.max(0, indent)) + tag.trim() + '\n'
+      if (tag.match(/^<\w[^/]*[^/]>$/)) indent++
+    }
+    form.webhook_body = formatted.trim()
+    notificationStore.showToast('XML formatted', 'success')
+    return
+  }
+  notificationStore.showToast('Could not detect format', 'info')
+}
+
+const showWebhook = ref(false)
 
 const form = reactive({
   name: props.rule.name || '',
@@ -379,7 +597,14 @@ const form = reactive({
   content_type: props.rule.contentType,
   body: props.rule.body,
   delay: props.rule.delay,
-  conditions: [...(props.rule.conditions || [])]
+  conditions: [...(props.rule.conditions || [])],
+  webhook_url: props.rule.webhookUrl || '',
+  webhook_method: props.rule.webhookMethod || 'POST',
+  webhook_headers_raw: JSON.stringify(props.rule.webhookHeaders || {}),
+  webhook_body: props.rule.webhookBody || '',
+  webhook_delay: props.rule.webhookDelay || 0,
+  webhook_content_type: props.rule.webhookContentType || 'application/json',
+  webhook_enabled: props.rule.webhookEnabled !== undefined ? props.rule.webhookEnabled : true
 })
 
 watch(() => props.rule, (r) => {
@@ -391,6 +616,13 @@ watch(() => props.rule, (r) => {
   form.body = r.body
   form.delay = r.delay
   form.conditions = [...(r.conditions || [])]
+  form.webhook_url = r.webhookUrl || ''
+  form.webhook_method = r.webhookMethod || 'POST'
+  form.webhook_headers_raw = JSON.stringify(r.webhookHeaders || {})
+  form.webhook_body = r.webhookBody || ''
+  form.webhook_delay = r.webhookDelay || 0
+  form.webhook_content_type = r.webhookContentType || 'application/json'
+  form.webhook_enabled = r.webhookEnabled !== undefined ? r.webhookEnabled : true
   dirty.value = false
   saved.value = true
   nextTick(() => { ignoreDirty = false })
@@ -448,17 +680,39 @@ function copyBody() {
     .catch(() => notificationStore.showToast('Failed to copy', 'error'))
 }
 
+// Replace {{...}} template tags with quoted placeholders so JSON.parse works,
+// then restore them after formatting.
+function beautifyWithTemplates(text) {
+  const templates = []
+  const safe = text.replace(/\{\{[^}]+\}\}/g, (match) => {
+    const idx = templates.length
+    templates.push(match)
+    return `"__TPL_${idx}__"`
+  })
+  try {
+    const parsed = JSON.parse(safe)
+    let formatted = JSON.stringify(parsed, null, 2)
+    // Restore template tags — remove the quotes we added around placeholders
+    templates.forEach((tpl, i) => {
+      formatted = formatted.replace(`"__TPL_${i}__"`, tpl)
+    })
+    return formatted
+  } catch (e) {
+    return null
+  }
+}
+
 function beautifyBody() {
   const text = form.body.trim()
   if (!text) return
 
-  // Try JSON
-  try {
-    const parsed = JSON.parse(text)
-    form.body = JSON.stringify(parsed, null, 2)
+  // Try JSON (with template support)
+  const result = beautifyWithTemplates(text)
+  if (result !== null) {
+    form.body = result
     notificationStore.showToast('JSON formatted', 'success')
     return
-  } catch (e) {}
+  }
 
   // Try XML - basic indent
   if (text.startsWith('<')) {
@@ -478,10 +732,29 @@ function beautifyBody() {
   notificationStore.showToast('Could not detect format', 'info')
 }
 
+function clearWebhook() {
+  form.webhook_url = ''
+  form.webhook_method = 'POST'
+  form.webhook_headers_raw = '{}'
+  form.webhook_body = ''
+  form.webhook_delay = 0
+  form.webhook_content_type = 'application/json'
+  form.webhook_enabled = true
+  showWebhook.value = false
+}
+
 async function saveRule() {
   try {
     saving.value = true
-    await mockStore.updateRule(props.rule.id, form)
+    // Parse webhook headers from raw JSON string
+    let webhookHeaders = {}
+    try { webhookHeaders = JSON.parse(form.webhook_headers_raw || '{}') } catch (_) {}
+    const payload = {
+      ...form,
+      webhook_headers: webhookHeaders
+    }
+    delete payload.webhook_headers_raw
+    await mockStore.updateRule(props.rule.id, payload)
     dirty.value = false
     saved.value = true
     notificationStore.showToast('Rule saved', 'success')
@@ -519,7 +792,14 @@ async function duplicateRule() {
       status_code: props.rule.statusCode,
       content_type: props.rule.contentType,
       body: props.rule.body,
-      delay: props.rule.delay
+      delay: props.rule.delay,
+      webhook_url: props.rule.webhookUrl || null,
+      webhook_method: props.rule.webhookMethod || 'POST',
+      webhook_headers: props.rule.webhookHeaders || {},
+      webhook_body: props.rule.webhookBody || null,
+      webhook_delay: props.rule.webhookDelay || 0,
+      webhook_content_type: props.rule.webhookContentType || 'application/json',
+      webhook_enabled: props.rule.webhookEnabled !== undefined ? props.rule.webhookEnabled : true
     })
     notificationStore.showToast(`Rule duplicated: ${newName.trim()}`, 'success')
   } catch (e) {

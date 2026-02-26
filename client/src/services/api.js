@@ -30,6 +30,11 @@ apiClient.interceptors.response.use(
   (error) => {
     const message = error.response?.data?.error || error.message || 'An error occurred'
     console.error('API Error:', message, error)
+    // Preserve the original error with response data for conflict handling (409)
+    if (error.response) {
+      error.message = message
+      return Promise.reject(error)
+    }
     return Promise.reject(new Error(message))
   }
 )
@@ -55,18 +60,20 @@ export const webhookApi = {
 
   // MockHub API v2
   // Environments
-  getEnvironments: () => apiClient.get('/v2/environments'),
+  getEnvironments: (params) => apiClient.get('/v2/environments', { params }),
   createEnvironment: (data) => apiClient.post('/v2/environments', data),
   getEnvironment: (id) => apiClient.get(`/v2/environments/${id}`),
   updateEnvironment: (id, data) => apiClient.put(`/v2/environments/${id}`, data),
   deleteEnvironment: (id) => apiClient.delete(`/v2/environments/${id}`),
   getEnvironmentTree: (id) => apiClient.get(`/v2/environments/${id}/tree`),
+  copyEnvironmentToServer: (id, targetServerId, conflictStrategy) => apiClient.post(`/v2/environments/${id}/copy`, { target_server_id: targetServerId, conflict_strategy: conflictStrategy }),
 
   // Groups
   getGroups: (envId) => apiClient.get(`/v2/environments/${envId}/groups`),
   createGroup: (envId, data) => apiClient.post(`/v2/environments/${envId}/groups`, data),
   updateGroup: (id, data) => apiClient.put(`/v2/groups/${id}`, data),
   deleteGroup: (id) => apiClient.delete(`/v2/groups/${id}`),
+  copyGroup: (id, data) => apiClient.post(`/v2/groups/${id}/copy`, data),
 
   // Routes
   getRoutes: (groupId) => apiClient.get(`/v2/groups/${groupId}/routes`),
@@ -74,6 +81,7 @@ export const webhookApi = {
   getRoute: (id) => apiClient.get(`/v2/routes/${id}`),
   updateRoute: (id, data) => apiClient.put(`/v2/routes/${id}`, data),
   deleteRoute: (id) => apiClient.delete(`/v2/routes/${id}`),
+  copyRoute: (id, data) => apiClient.post(`/v2/routes/${id}/copy`, data),
 
   // Rules
   getRules: (routeId) => apiClient.get(`/v2/routes/${routeId}/rules`),
@@ -91,6 +99,24 @@ export const webhookApi = {
   // Export/Import
   exportEnvironment: (id) => apiClient.get(`/v2/environments/${id}/export`),
   importEnvironment: (data) => apiClient.post('/v2/environments/import', data),
+
+  // Servers
+  getServers: () => apiClient.get('/v2/servers'),
+  createServer: (data) => apiClient.post('/v2/servers', data),
+  updateServer: (id, data) => apiClient.put(`/v2/servers/${id}`, data),
+  deleteServer: (id) => apiClient.delete(`/v2/servers/${id}`),
+  testServerConnection: (id) => apiClient.post(`/v2/servers/${id}/test`),
+  getServerEnvironments: (id) => apiClient.get(`/v2/servers/${id}/environments`),
+  pullFromServer: (id, data) => apiClient.post(`/v2/servers/${id}/pull`, data, { timeout: 60000 }),
+  pushToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push`, data, { timeout: 60000 }),
+  pushGroupToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/group`, data, { timeout: 60000 }),
+  pushRouteToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/route`, data, { timeout: 60000 }),
+  getServerSyncStatus: (id) => apiClient.get(`/v2/servers/${id}/sync-status`),
+  copyBetweenServers: (sourceId, targetId, data) => apiClient.post(`/v2/servers/${sourceId}/copy/${targetId}`, data, { timeout: 120000 }),
+
+  // Active server
+  getActiveServer: () => apiClient.get('/v2/active-server'),
+  setActiveServer: (serverId) => apiClient.put('/v2/active-server', { serverId }),
 }
 
 export default apiClient

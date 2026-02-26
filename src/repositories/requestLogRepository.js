@@ -35,6 +35,15 @@ class RequestLogRepository {
         return this.findById(result.lastID);
     }
 
+    async updateWebhookResult(id, data) {
+        const db = database.getConnection();
+        await db.run(
+            `UPDATE request_logs SET webhook_sent = 1, webhook_url = ?, webhook_method = ?, webhook_request_headers = ?, webhook_request_body = ?, webhook_response_status = ?, webhook_response_headers = ?, webhook_response_body = ?, webhook_error = ? WHERE id = ?`,
+            [data.webhook_url, data.webhook_method, data.webhook_request_headers, data.webhook_request_body, data.webhook_response_status || null, data.webhook_response_headers || null, data.webhook_response_body || null, data.webhook_error || null, id]
+        );
+        return this.findById(id);
+    }
+
     async delete(id) {
         const db = database.getConnection();
         const result = await db.run('DELETE FROM request_logs WHERE id = ?', id);

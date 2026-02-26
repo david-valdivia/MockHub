@@ -30,9 +30,12 @@ class RouteRepository {
 
     async create(data) {
         const db = database.getConnection();
+        const pathPattern = data.path_pattern || '';
+        const slug = data.slug || this._slugify(pathPattern || data.name || 'route');
+        const name = data.name || '';
         const result = await db.run(
-            'INSERT INTO routes (group_id, method, path_pattern, capture_requests) VALUES (?, ?, ?, ?)',
-            [data.group_id, (data.method || 'ALL').toUpperCase(), data.path_pattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1]
+            'INSERT INTO routes (group_id, name, method, path_pattern, capture_requests, slug, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+            [data.group_id, name, (data.method || 'ALL').toUpperCase(), pathPattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1, slug]
         );
         return this.findById(result.lastID);
     }
@@ -41,14 +44,21 @@ class RouteRepository {
         const db = database.getConnection();
         const setClauses = [];
         const values = [];
+        if (data.name !== undefined) { setClauses.push('name = ?'); values.push(data.name); }
         if (data.method !== undefined) { setClauses.push('method = ?'); values.push(data.method.toUpperCase()); }
         if (data.path_pattern !== undefined) { setClauses.push('path_pattern = ?'); values.push(data.path_pattern); }
         if (data.capture_requests !== undefined) { setClauses.push('capture_requests = ?'); values.push(data.capture_requests ? 1 : 0); }
         if (data.group_id !== undefined) { setClauses.push('group_id = ?'); values.push(data.group_id); }
+        if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
         if (setClauses.length === 0) throw new Error('No fields to update');
+        setClauses.push('updated_at = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE routes SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);
+    }
+
+    _slugify(name) {
+        return (name || '').toLowerCase().replace(/^\/+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled';
     }
 
     async delete(id) {
