@@ -15,7 +15,7 @@ class ContentHashService {
     }
 
     groupContent(group) {
-        return { name: group.name, sort_order: group.sortOrder ?? group.sort_order ?? 0 };
+        return { name: group.name, sort_order: group.sortOrder ?? group.sort_order ?? 0, path: group.path || '' };
     }
 
     routeContent(route) {

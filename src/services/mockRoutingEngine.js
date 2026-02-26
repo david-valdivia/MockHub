@@ -2,6 +2,7 @@ const { match } = require('path-to-regexp');
 const axios = require('axios');
 const https = require('https');
 const environmentRepository = require('../repositories/environmentRepository');
+const groupRepository = require('../repositories/groupRepository');
 const routeRepository = require('../repositories/routeRepository');
 const ruleRepository = require('../repositories/ruleRepository');
 const requestLogRepository = require('../repositories/requestLogRepository');
@@ -10,53 +11,70 @@ const templateEngine = require('./templateEngine');
 const socketService = require('./socketService');
 
 class MockRoutingEngine {
+    // Build full pattern by concatenating env.basePath + group.path + route.pathPattern
+    _buildFullPattern(envBasePath, groupPath, routePathPattern) {
+        const parts = [envBasePath || '', groupPath || '', routePathPattern || ''];
+        let full = parts.join('');
+        // Normalize: collapse duplicate slashes, ensure leading /
+        full = full.replace(/\/+/g, '/');
+        if (!full.startsWith('/')) full = '/' + full;
+        // Remove trailing slash (unless it's just "/")
+        if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1);
+        return full || '/';
+    }
+
     async handleRequest(req, res, next) {
         const fullPath = req.path;
 
-        // 1. Find matching environment by base_path
+        // 1. Get all active environments and build candidate routes with 3-level patterns
         const environments = await environmentRepository.findAllActive();
+        if (environments.length === 0) return next();
+
         let matchedEnv = null;
-        let remainingPath = '';
+        let matchedRoute = null;
+        let params = {};
+        const candidates = [];
 
         for (const env of environments) {
-            if (fullPath === env.basePath || fullPath.startsWith(env.basePath + '/')) {
-                matchedEnv = env;
-                remainingPath = fullPath.slice(env.basePath.length) || '/';
-                break; // environments sorted by path length DESC, first match wins
+            const groups = await groupRepository.findByEnvironmentId(env.id);
+            for (const group of groups) {
+                const routes = await routeRepository.findByGroupId(group.id);
+                for (const route of routes) {
+                    if (route.method !== 'ALL' && route.method !== req.method) continue;
+                    const fullPattern = this._buildFullPattern(env.basePath, group.path, route.pathPattern);
+                    candidates.push({ env, group, route, fullPattern });
+                }
+            }
+        }
+
+        // Sort by specificity: longer patterns first (more specific wins)
+        candidates.sort((a, b) => b.fullPattern.length - a.fullPattern.length);
+
+        // 2. Try to match each candidate
+        for (const candidate of candidates) {
+            try {
+                const matchFn = match(candidate.fullPattern, { decode: decodeURIComponent });
+                const result = matchFn(fullPath);
+                if (result) {
+                    matchedEnv = candidate.env;
+                    matchedRoute = candidate.route;
+                    params = result.params;
+                    break;
+                }
+            } catch (e) {
+                // Skip invalid patterns
             }
         }
 
         if (!matchedEnv) {
-            return next(); // No environment matched, pass to legacy handler
-        }
-
-        // 2. Find matching route by method + path pattern
-        const routes = await routeRepository.findByEnvironmentId(matchedEnv.id);
-        let matchedRoute = null;
-        let params = {};
-
-        // Normalize remainingPath to always start with /
-        if (!remainingPath.startsWith('/')) remainingPath = '/' + remainingPath;
-
-        for (const route of routes) {
-            if (route.method !== 'ALL' && route.method !== req.method) continue;
-
-            // Normalize pathPattern to always start with /
-            const pattern = route.pathPattern.startsWith('/') ? route.pathPattern : '/' + route.pathPattern;
-            const matchFn = match(pattern, { decode: decodeURIComponent });
-            const result = matchFn(remainingPath);
-            if (result) {
-                matchedRoute = route;
-                params = result.params;
-                break;
-            }
+            return next(); // No match, pass to legacy handler
         }
 
         if (!matchedRoute) {
             return res.status(404).json({
                 error: 'Route not found',
                 environment: matchedEnv.name,
-                path: remainingPath,
+                path: fullPath,
                 method: req.method
             });
         }

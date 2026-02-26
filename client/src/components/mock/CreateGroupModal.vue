@@ -8,6 +8,11 @@
           <input v-model="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g. Charges" />
         </div>
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Path</label>
+          <input v-model="path" class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm" placeholder="e.g. /:clientId/items" />
+          <p class="text-xs text-gray-400 mt-1">Optional. Supports <code>:param</code> variables.</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
           <input v-model="slug" class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm" :placeholder="autoSlug" />
           <p class="text-xs text-gray-400 mt-1">Auto-generated from name if empty.</p>
@@ -33,6 +38,7 @@ const emit = defineEmits(['close'])
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const name = ref('')
+const path = ref('')
 const slug = ref('')
 const saving = ref(false)
 
@@ -43,7 +49,7 @@ const autoSlug = computed(() => {
 async function submit() {
   try {
     saving.value = true
-    const data = { name: name.value }
+    const data = { name: name.value, path: path.value }
     if (slug.value) data.slug = slug.value
     await mockStore.createGroup(props.environmentId, data)
     notificationStore.showToast('Group created', 'success')

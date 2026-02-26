@@ -39,8 +39,10 @@ class EnvironmentController {
             if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
 
             const serverId = server_id ? parseInt(server_id) : null;
-            const exists = await environmentRepo.exists(sanitizedPath, serverId);
-            if (exists) return res.status(409).json({ error: 'Base path already in use' });
+            if (sanitizedPath) {
+                const exists = await environmentRepo.exists(sanitizedPath, serverId);
+                if (exists) return res.status(409).json({ error: 'Base path already in use' });
+            }
 
             const env = await environmentRepo.create({ name, base_path: sanitizedPath, description, server_id: serverId });
             socketService.broadcastMessage('environmentCreated', env.toJSON());
@@ -115,7 +117,8 @@ class EnvironmentController {
                     environment_id: newEnv.id,
                     name: group.name,
                     sort_order: group.sortOrder,
-                    slug: group.slug
+                    slug: group.slug,
+                    path: group.path || ''
                 });
 
                 for (const route of routes) {

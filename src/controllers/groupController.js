@@ -20,11 +20,11 @@ class GroupController {
             const env = await environmentRepo.findById(envId);
             if (!env) return res.status(404).json({ error: 'Environment not found' });
 
-            const { name, sort_order } = req.body;
+            const { name, sort_order, path } = req.body;
             const errors = Group.validate({ name, environment_id: envId });
             if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
 
-            const group = await groupRepo.create({ environment_id: envId, name, sort_order });
+            const group = await groupRepo.create({ environment_id: envId, name, sort_order, path: path || '' });
             socketService.broadcastMessage('groupCreated', { environmentId: envId, group: group.toJSON() });
             res.status(201).json(group.toJSON());
         } catch (error) {
@@ -41,6 +41,7 @@ class GroupController {
             const data = {};
             if (req.body.name !== undefined) data.name = req.body.name;
             if (req.body.sort_order !== undefined) data.sort_order = req.body.sort_order;
+            if (req.body.path !== undefined) data.path = req.body.path;
 
             const updated = await groupRepo.update(id, data);
             socketService.broadcastMessage('groupUpdated', updated.toJSON());

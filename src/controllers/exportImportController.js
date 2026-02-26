@@ -26,7 +26,7 @@ class ExportImportController {
 
             for (const group of groups) {
                 const routes = await routeRepo.findByGroupId(group.id);
-                const groupData = { name: group.name, sort_order: group.sortOrder, routes: [] };
+                const groupData = { name: group.name, sort_order: group.sortOrder, path: group.path || '', routes: [] };
 
                 for (const route of routes) {
                     const rules = await ruleRepo.findByRouteId(route.id);
@@ -99,7 +99,8 @@ class ExportImportController {
                 const group = await groupRepo.create({
                     environment_id: env.id,
                     name: groupData.name,
-                    sort_order: groupData.sort_order || 0
+                    sort_order: groupData.sort_order || 0,
+                    path: groupData.path || ''
                 });
 
                 for (const routeData of (groupData.routes || [])) {

@@ -13,8 +13,9 @@
           >
             <option v-for="m in ['GET','POST','PUT','PATCH','DELETE','ALL']" :key="m" :value="m">{{ m }}</option>
           </select>
-          <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern }}</span>
+          <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern || '/' }}</span>
         </div>
+        <div v-if="fullUrl" class="mt-1 text-xs font-mono text-gray-400">{{ fullUrl }}</div>
         <button @click="confirmDeleteRoute" class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
           Delete Route
         </button>
@@ -115,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import { ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
@@ -126,6 +127,26 @@ import Swal from 'sweetalert2'
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const activeTab = ref('rules')
+
+const fullUrl = computed(() => {
+  const route = mockStore.activeRoute
+  const env = mockStore.activeEnvironment
+  if (!route || !env) return ''
+  // Find the group containing this route
+  let groupPath = ''
+  for (const g of (env.groups || [])) {
+    if ((g.routes || []).some(r => r.id === route.id)) {
+      groupPath = g.path || ''
+      break
+    }
+  }
+  const parts = [env.basePath || '', groupPath, route.pathPattern || '']
+  let full = parts.join('')
+  full = full.replace(/\/+/g, '/')
+  if (!full.startsWith('/')) full = '/' + full
+  if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)
+  return full || '/'
+})
 const showBulkRules = ref(false)
 const bulkRulesText = ref('')
 

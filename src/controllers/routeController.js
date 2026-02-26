@@ -35,7 +35,7 @@ class RouteController {
             if (!group) return res.status(404).json({ error: 'Group not found' });
 
             const { method, path_pattern, capture_requests } = req.body;
-            const errors = Route.validate({ method, path_pattern, group_id: groupId });
+            const errors = Route.validate({ method, path_pattern: path_pattern || '', group_id: groupId });
             if (errors.length > 0) return res.status(400).json({ error: errors.join(', ') });
 
             const route = await routeRepo.create({ group_id: groupId, method, path_pattern, capture_requests });

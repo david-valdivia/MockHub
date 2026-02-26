@@ -30,10 +30,11 @@ class RouteRepository {
 
     async create(data) {
         const db = database.getConnection();
-        const slug = data.slug || this._slugify(data.path_pattern);
+        const pathPattern = data.path_pattern || '';
+        const slug = data.slug || this._slugify(pathPattern || data.name || 'route');
         const result = await db.run(
             'INSERT INTO routes (group_id, method, path_pattern, capture_requests, slug, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-            [data.group_id, (data.method || 'ALL').toUpperCase(), data.path_pattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1, slug]
+            [data.group_id, (data.method || 'ALL').toUpperCase(), pathPattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1, slug]
         );
         return this.findById(result.lastID);
     }

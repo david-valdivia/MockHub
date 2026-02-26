@@ -163,6 +163,7 @@ class GitHubSyncService {
             groups.push({
                 name: groupData.name || groupDir.name,
                 sort_order: groupData.sort_order || 0,
+                path: groupData.path || '',
                 routes
             });
         }
@@ -204,6 +205,7 @@ class GitHubSyncService {
                 environment_id: env.id,
                 name: groupData.name,
                 sort_order: groupData.sort_order || 0,
+                path: groupData.path || '',
                 slug: this.slugify(groupData.name)
             });
 
@@ -258,19 +260,52 @@ class GitHubSyncService {
             `MockHub sync: ${env.name}`
         );
 
+        // Track which group dirs and route files we write (for cleanup)
+        const writtenGroupSlugs = new Set();
+        const writtenRouteFiles = {}; // groupSlug -> Set of filenames
+
         for (const group of groups) {
             const groupSlug = group.slug || this.slugify(group.name);
+            writtenGroupSlugs.add(groupSlug);
+            writtenRouteFiles[groupSlug] = new Set();
             const routes = await routeRepo.findByGroupId(group.id);
 
             await this._putFile(owner, repo, branch, serverRow.token,
                 `${envSlug}/${groupSlug}/_group.json`,
-                JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
+                JSON.stringify({ name: group.name, sort_order: group.sortOrder, path: group.path || '' }, null, 2),
                 `MockHub sync: ${env.name}/${group.name}`
             );
 
             for (const route of routes) {
+                const routeSlug = route.slug || this.slugify(route.pathPattern);
+                writtenRouteFiles[groupSlug].add(`${routeSlug}.json`);
                 await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
             }
+        }
+
+        // Clean up orphaned files/dirs in GitHub
+        try {
+            const envContents = await this._listDir(owner, repo, branch, serverRow.token, envSlug);
+            for (const item of envContents) {
+                if (item.type === 'dir' && !writtenGroupSlugs.has(item.name)) {
+                    // Group directory no longer exists locally — delete entire dir
+                    console.log(`Deleting orphaned group dir: ${item.path}`);
+                    await this._deleteDir(owner, repo, branch, serverRow.token, item.path, `MockHub cleanup: removed ${item.name}`);
+                } else if (item.type === 'dir' && writtenGroupSlugs.has(item.name)) {
+                    // Group exists — check for orphaned route files inside
+                    const groupContents = await this._listDir(owner, repo, branch, serverRow.token, item.path);
+                    const expectedFiles = writtenRouteFiles[item.name] || new Set();
+                    for (const file of groupContents) {
+                        if (file.type === 'file' && file.name !== '_group.json' && !expectedFiles.has(file.name)) {
+                            console.log(`Deleting orphaned route file: ${file.path}`);
+                            await this._deleteFile(owner, repo, branch, serverRow.token, file.path, `MockHub cleanup: removed ${file.name}`);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Warning: cleanup of orphaned files failed:', err.message);
+            // Non-fatal — push itself succeeded
         }
 
         // Record sync tracking with content hashes
@@ -326,7 +361,7 @@ class GitHubSyncService {
 
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/${groupSlug}/_group.json`,
-            JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
+            JSON.stringify({ name: group.name, sort_order: group.sortOrder, path: group.path || '' }, null, 2),
             `MockHub sync: ${env.name}/${group.name}`
         );
 
@@ -382,7 +417,7 @@ class GitHubSyncService {
 
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/${groupSlug}/_group.json`,
-            JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
+            JSON.stringify({ name: group.name, sort_order: group.sortOrder, path: group.path || '' }, null, 2),
             `MockHub sync: ${env.name}/${group.name}`
         );
 
@@ -459,6 +494,42 @@ class GitHubSyncService {
             JSON.stringify(routeData, null, 2),
             `MockHub sync: ${envName}/${groupName}/${route.pathPattern}`
         );
+    }
+
+    async _listDir(owner, repo, branch, token, path) {
+        try {
+            const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+            return await this._githubRequest('GET', url, token);
+        } catch (err) {
+            if (err.message.includes('404')) return [];
+            throw err;
+        }
+    }
+
+    async _deleteFile(owner, repo, branch, token, path, message) {
+        const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`;
+        try {
+            const existing = await this._githubRequest('GET', `${url}?ref=${branch}`, token);
+            await this._githubRequest('DELETE', url, token, {
+                message,
+                sha: existing.sha,
+                branch
+            });
+        } catch (err) {
+            if (err.message.includes('404')) return; // Already gone
+            throw err;
+        }
+    }
+
+    async _deleteDir(owner, repo, branch, token, dirPath, message) {
+        const contents = await this._listDir(owner, repo, branch, token, dirPath);
+        for (const item of contents) {
+            if (item.type === 'dir') {
+                await this._deleteDir(owner, repo, branch, token, item.path, message);
+            } else {
+                await this._deleteFile(owner, repo, branch, token, item.path, message);
+            }
+        }
     }
 
     async _putFile(owner, repo, branch, token, path, content, message) {

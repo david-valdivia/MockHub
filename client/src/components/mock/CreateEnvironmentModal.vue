@@ -8,8 +8,9 @@
           <input v-model="form.name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g. Stripe Mock" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Base Path</label>
-          <input v-model="form.base_path" required class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono" placeholder="e.g. /stripe" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Path</label>
+          <input v-model="form.base_path" class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono" placeholder="e.g. /stripe or /api/:version" />
+          <p class="text-xs text-gray-400 mt-1">Optional. Supports <code>:param</code> variables. Valid: <code>a-z 0-9 - _ / : . + *</code></p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>

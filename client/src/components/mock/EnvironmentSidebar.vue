@@ -30,7 +30,7 @@
               :class="{ 'rotate-90': expandedEnvs.has(env.id) }"
             />
             <ServerIcon class="h-4 w-4 mr-2 flex-shrink-0" />
-            <span class="text-sm font-medium truncate flex-1">{{ env.name }}</span>
+            <span class="text-sm font-medium truncate flex-1">{{ env.name }}<span v-if="env.basePath" class="text-gray-400 text-xs font-mono ml-1">{{ env.basePath }}</span></span>
             <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <button @click.stop="addGroup(env)" class="p-1 hover:bg-gray-200 rounded" title="Add group">
                 <PlusIcon class="h-3 w-3" />
@@ -45,6 +45,7 @@
                 <TrashIcon class="h-3 w-3" />
               </button>
             </div>
+            <span v-if="syncDot('environment', env.id)" class="h-2.5 w-2.5 rounded-full border border-gray-300 flex-shrink-0 ml-1.5" :class="syncDot('environment', env.id)" :title="syncTitle('environment', env.id)"></span>
           </div>
 
           <!-- Groups & Routes Tree -->
@@ -61,7 +62,7 @@
                   :class="{ 'rotate-90': expandedGroups.has(group.id) }"
                 />
                 <FolderIcon class="h-3.5 w-3.5 mr-1.5 flex-shrink-0 text-gray-400" />
-                <span class="text-xs font-medium truncate flex-1">{{ group.name }}</span>
+                <span class="text-xs font-medium truncate flex-1">{{ group.name }}<span v-if="group.path" class="text-gray-400 font-mono ml-1">{{ group.path }}</span></span>
                 <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button @click.stop="addRoute(group)" class="p-0.5 hover:bg-gray-200 rounded" title="Add route">
                     <PlusIcon class="h-3 w-3" />
@@ -73,6 +74,7 @@
                     <TrashIcon class="h-3 w-3" />
                   </button>
                 </div>
+                <span v-if="syncDot('group', group.id)" class="h-2.5 w-2.5 rounded-full border border-gray-300 flex-shrink-0 ml-1.5" :class="syncDot('group', group.id)" :title="syncTitle('group', group.id)"></span>
               </div>
 
               <!-- Routes -->
@@ -85,14 +87,16 @@
                   @contextmenu.prevent="openContextMenu($event, env, group, rt)"
                 >
                   <span class="text-xs font-mono font-bold mr-1.5 flex-shrink-0" :class="methodColor(rt.method)">{{ rt.method }}</span>
-                  <span class="text-xs truncate flex-1">{{ rt.pathPattern }}</span>
+                  <span class="text-xs truncate flex-1">{{ rt.name || rt.pathPattern || '/' }}</span>
+                  <span v-if="rt.name && rt.pathPattern" class="text-gray-400 text-[10px] font-mono ml-1 flex-shrink-0">{{ rt.pathPattern }}</span>
                   <button
-                    @click.stop="copyRouteUrl(env, rt)"
+                    @click.stop="copyRouteUrl(env, rt, group)"
                     class="p-0.5 text-gray-400 hover:text-blue-600 opacity-0 group-hover/rt:opacity-100 transition-opacity flex-shrink-0"
                     title="Copy mock URL"
                   >
                     <ClipboardDocumentIcon class="h-3 w-3" />
                   </button>
+                  <span v-if="syncDot('route', rt.id)" class="h-2 w-2 rounded-full border border-gray-300 flex-shrink-0 ml-1" :class="syncDot('route', rt.id)" :title="syncTitle('route', rt.id)"></span>
                 </div>
               </div>
             </div>
@@ -245,6 +249,23 @@ const hasCopyTargets = computed(() => {
   return mockStore.servers.length > 0 // on Local, need at least 1 server
 })
 
+// Sync status dots: show when viewing a GitHub server
+function syncDot(entityType, entityId) {
+  if (!mockStore.activeSyncServerId) return null
+  const status = mockStore.getSyncStatusFor(entityType, entityId)
+  if (status === 'synced') return 'bg-green-400'
+  if (status === 'modified') return 'bg-amber-400'
+  return 'bg-gray-300'
+}
+
+function syncTitle(entityType, entityId) {
+  if (!mockStore.activeSyncServerId) return ''
+  const status = mockStore.getSyncStatusFor(entityType, entityId)
+  if (status === 'synced') return 'Synced with GitHub'
+  if (status === 'modified') return 'Modified since last push'
+  return 'Not pushed to GitHub'
+}
+
 async function toggleEnvironment(env) {
   if (expandedEnvs.value.has(env.id)) {
     expandedEnvs.value.delete(env.id)
@@ -297,11 +318,19 @@ function addRoute(group) {
   showCreateRouteModal.value = true
 }
 
-function copyRouteUrl(env, rt) {
+function buildFullUrl(env, group, rt) {
+  const parts = [env.basePath || '', group?.path || '', rt.pathPattern || '']
+  let full = parts.join('')
+  full = full.replace(/\/+/g, '/')
+  if (!full.startsWith('/')) full = '/' + full
+  if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)
+  return full || '/'
+}
+
+function copyRouteUrl(env, rt, group) {
   const origin = window.location.origin
-  const basePath = env.basePath.endsWith('/') ? env.basePath.slice(0, -1) : env.basePath
-  const routePath = rt.pathPattern.startsWith('/') ? rt.pathPattern : '/' + rt.pathPattern
-  const url = `${origin}${basePath}${routePath}`
+  const fullPath = buildFullUrl(env, group, rt)
+  const url = `${origin}${fullPath}`
   navigator.clipboard.writeText(url)
     .then(() => notificationStore.showToast('URL copied', 'success'))
     .catch(() => notificationStore.showToast('Failed to copy', 'error'))
@@ -435,7 +464,7 @@ function closeContextMenu() {
 }
 
 function ctxCopyUrl() {
-  copyRouteUrl(ctxMenu.env, ctxMenu.route)
+  copyRouteUrl(ctxMenu.env, ctxMenu.route, ctxMenu.group)
   closeContextMenu()
 }
 

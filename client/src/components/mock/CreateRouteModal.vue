@@ -11,8 +11,9 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Path Pattern</label>
-          <input v-model="pathPattern" required class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono" placeholder="e.g. /charges/:id" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Path</label>
+          <input v-model="pathPattern" class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono" placeholder="e.g. /charges/:id" />
+          <p class="text-xs text-gray-400 mt-1">Optional. Supports <code>:param</code> variables.</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>

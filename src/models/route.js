@@ -3,7 +3,7 @@ class Route {
         this.id = data.id;
         this.groupId = data.group_id;
         this.method = data.method || 'ALL';
-        this.pathPattern = data.path_pattern;
+        this.pathPattern = data.path_pattern || '';
         this.slug = data.slug || '';
         this.captureRequests = data.capture_requests !== undefined ? Boolean(data.capture_requests) : true;
         this.createdAt = data.created_at;
@@ -31,9 +31,7 @@ class Route {
         if (data.method && !validMethods.includes(data.method.toUpperCase())) {
             errors.push('Invalid HTTP method');
         }
-        if (!data.path_pattern || typeof data.path_pattern !== 'string') {
-            errors.push('Path pattern is required');
-        }
+        // path_pattern is optional (empty string is valid)
         if (!data.group_id || typeof data.group_id !== 'number') {
             errors.push('Group ID is required');
         }

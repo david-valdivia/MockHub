@@ -32,13 +32,12 @@ class Environment {
         if (!data.name || typeof data.name !== 'string' || data.name.trim() === '') {
             errors.push('Name is required');
         }
-        if (!data.base_path || typeof data.base_path !== 'string' || data.base_path.trim() === '') {
-            errors.push('Base path is required');
-        }
+        // base_path is optional (empty string is valid)
         return errors;
     }
 
     static sanitizeBasePath(basePath) {
+        if (!basePath || basePath.trim() === '') return '';
         let cleaned = basePath.trim().replace(/\/+$/, '');
         if (!cleaned.startsWith('/')) {
             cleaned = '/' + cleaned;
