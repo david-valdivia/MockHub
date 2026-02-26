@@ -2,6 +2,9 @@
   <div class="w-72 bg-white border-r border-gray-200 h-screen flex flex-col overflow-hidden">
     <div class="flex-shrink-0 px-4 py-3 border-b border-gray-100">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Environments</h2>
+      <p v-if="activeSyncServerName" class="text-[10px] text-blue-500 mt-0.5 truncate">
+        Viewing <strong>{{ activeSyncServerName }}</strong>
+      </p>
     </div>
 
     <div class="flex-1 overflow-y-auto py-2">
@@ -11,6 +14,7 @@
 
       <div v-else-if="mockStore.environments.length === 0" class="text-center py-8 px-4">
         <p class="text-gray-400 text-sm">No environments yet</p>
+        <p v-if="activeSyncServerName" class="text-gray-300 text-xs mt-1">Pull from GitHub or create a new one</p>
       </div>
 
       <div v-else>
@@ -31,6 +35,9 @@
               <button @click.stop="addGroup(env)" class="p-1 hover:bg-gray-200 rounded" title="Add group">
                 <PlusIcon class="h-3 w-3" />
               </button>
+              <button v-if="hasCopyTargets" @click.stop="copyEnvTo(env)" class="p-1 hover:bg-blue-100 hover:text-blue-600 rounded" title="Copy To...">
+                <CloudArrowUpIcon class="h-3 w-3" />
+              </button>
               <button @click.stop="doExport(env)" class="p-1 hover:bg-gray-200 rounded" title="Export">
                 <ArrowDownTrayIcon class="h-3 w-3" />
               </button>
@@ -47,6 +54,7 @@
               <div
                 class="flex items-center px-3 py-1.5 mx-2 rounded cursor-pointer group text-gray-600 hover:bg-gray-50"
                 @click="toggleGroup(group.id)"
+                @contextmenu.prevent="openGroupContextMenu($event, env, group)"
               >
                 <ChevronRightIcon
                   class="h-3 w-3 mr-1.5 transition-transform flex-shrink-0"
@@ -58,7 +66,7 @@
                   <button @click.stop="addRoute(group)" class="p-0.5 hover:bg-gray-200 rounded" title="Add route">
                     <PlusIcon class="h-3 w-3" />
                   </button>
-                  <button v-if="mockStore.servers.length > 0" @click.stop="pushGroup(group)" class="p-0.5 hover:bg-blue-100 hover:text-blue-600 rounded" title="Push group to server">
+                  <button v-if="hasCopyTargets" @click.stop="copyGroupTo(group)" class="p-0.5 hover:bg-blue-100 hover:text-blue-600 rounded" title="Copy To...">
                     <CloudArrowUpIcon class="h-3 w-3" />
                   </button>
                   <button @click.stop="confirmDeleteGroup(group)" class="p-0.5 hover:bg-red-100 hover:text-red-600 rounded" title="Delete">
@@ -150,12 +158,41 @@
           <DocumentDuplicateIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Duplicate</span>
         </button>
-        <button v-if="mockStore.servers.length > 0" @click="ctxPushRoute" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+        <button v-if="hasCopyTargets" @click="ctxCopyRouteTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
-          <span>Push to server</span>
+          <span>Copy To...</span>
         </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="ctxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
+          <TrashIcon class="h-3.5 w-3.5" />
+          <span>Delete</span>
+        </button>
+      </div>
+    </Teleport>
+
+    <!-- Group Context Menu -->
+    <Teleport to="body">
+      <div
+        v-if="groupCtxMenu.visible"
+        class="fixed inset-0 z-[99998]"
+        @click="closeGroupContextMenu"
+        @contextmenu.prevent="closeGroupContextMenu"
+      ></div>
+      <div
+        v-if="groupCtxMenu.visible"
+        class="fixed z-[99999] bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+        :style="{ top: groupCtxMenu.y + 'px', left: groupCtxMenu.x + 'px' }"
+      >
+        <button @click="groupCtxAddRoute" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PlusIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Add Route</span>
+        </button>
+        <button v-if="hasCopyTargets" @click="groupCtxCopyTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Copy To...</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button @click="groupCtxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
           <TrashIcon class="h-3.5 w-3.5" />
           <span>Delete</span>
         </button>
@@ -194,6 +231,19 @@ const showCreateGroupModal = ref(false)
 const createGroupEnvId = ref(null)
 const showCreateRouteModal = ref(false)
 const createRouteGroupId = ref(null)
+
+const activeSyncServerName = computed(() => {
+  if (!mockStore.activeSyncServerId) return null
+  const server = mockStore.servers.find(s => s.id === mockStore.activeSyncServerId)
+  return server?.name || null
+})
+
+// Show "Copy To..." when there's at least one other server to copy to
+// On Local: need at least 1 GitHub server. On a server: Local is always available.
+const hasCopyTargets = computed(() => {
+  if (mockStore.activeSyncServerId) return true // can always copy to Local
+  return mockStore.servers.length > 0 // on Local, need at least 1 server
+})
 
 async function toggleEnvironment(env) {
   if (expandedEnvs.value.has(env.id)) {
@@ -303,10 +353,75 @@ function confirmDeleteGroup(group) {
   })
 }
 
-// --- Context Menu ---
+// --- Server picker (includes Local, excludes current) ---
+async function pickTargetServer() {
+  // Build the list: Local + all GitHub servers, excluding the one we're currently viewing
+  const currentServerId = mockStore.activeSyncServerId // null = Local
+  const targets = []
+  if (currentServerId !== null) {
+    targets.push({ id: 'local', name: 'Local' })
+  }
+  for (const s of mockStore.servers) {
+    if (s.id !== currentServerId) {
+      targets.push({ id: s.id, name: s.name })
+    }
+  }
+  if (targets.length === 0) return null
+  if (targets.length === 1) return targets[0]
+
+  const options = {}
+  targets.forEach(t => { options[t.id] = t.name })
+  const { value } = await Swal.fire({
+    title: 'Copy To...',
+    text: 'Select target server',
+    input: 'select',
+    inputOptions: options,
+    showCancelButton: true,
+    confirmButtonText: 'Select',
+    inputValidator: (val) => { if (!val) return 'Please select a server' },
+    customClass: {
+      input: 'swal-select-bordered'
+    }
+  })
+  if (!value) return null
+  return targets.find(t => String(t.id) === String(value))
+}
+
+// --- Copy To... for environments ---
+async function copyEnvTo(env) {
+  const target = await pickTargetServer()
+  if (!target) return
+  const { isConfirmed } = await Swal.fire({
+    title: 'Copy To ' + target.name + '?',
+    text: `Copy "${env.name}" and all its groups/routes to ${target.name}`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Copy'
+  })
+  if (!isConfirmed) return
+  try {
+    await mockStore.copyEnvironmentToServer(env.id, target.id)
+    notificationStore.showToast(`Copied "${env.name}" to ${target.name}`, 'success')
+  } catch (error) {
+    notificationStore.showToast(error.message || 'Copy failed', 'error')
+  }
+}
+
+// --- Copy To... for groups ---
+async function copyGroupTo(group) {
+  notificationStore.showToast('Use Copy To... on the environment to copy full environments between servers', 'info')
+}
+
+// --- Copy To... for routes ---
+async function copyRouteTo(route) {
+  notificationStore.showToast('Use Copy To... on the environment to copy full environments between servers', 'info')
+}
+
+// --- Route Context Menu ---
 const ctxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: null, route: null })
 
 function openContextMenu(event, env, group, rt) {
+  closeGroupContextMenu()
   ctxMenu.x = event.clientX
   ctxMenu.y = event.clientY
   ctxMenu.env = env
@@ -385,60 +500,10 @@ async function ctxDuplicate() {
   }
 }
 
-async function pickServer() {
-  const serverList = mockStore.servers
-  if (serverList.length === 1) return serverList[0]
-  const options = {}
-  serverList.forEach(s => { options[s.id] = s.name })
-  const { value } = await Swal.fire({
-    title: 'Select server',
-    input: 'select',
-    inputOptions: options,
-    showCancelButton: true,
-    inputValidator: (val) => { if (!val) return 'Please select a server' }
-  })
-  if (!value) return null
-  return serverList.find(s => s.id === parseInt(value))
-}
-
-async function pushGroup(group) {
-  const server = await pickServer()
-  if (!server) return
-  const { isConfirmed } = await Swal.fire({
-    title: 'Push group to GitHub?',
-    text: `Push "${group.name}" and all its routes to ${server.name}?`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Push'
-  })
-  if (!isConfirmed) return
-  try {
-    await mockStore.pushGroupToServer(server.id, group.id)
-    notificationStore.showToast(`Pushed group "${group.name}"`, 'success')
-  } catch (error) {
-    notificationStore.showToast(error.message || 'Push group failed', 'error')
-  }
-}
-
-async function ctxPushRoute() {
+async function ctxCopyRouteTo() {
   const { route } = ctxMenu
   closeContextMenu()
-  const server = await pickServer()
-  if (!server) return
-  const { isConfirmed } = await Swal.fire({
-    title: 'Push route to GitHub?',
-    text: `Push "${route.method} ${route.pathPattern}" to ${server.name}?`,
-    icon: 'question',
-    showCancelButton: true,
-    confirmButtonText: 'Push'
-  })
-  if (!isConfirmed) return
-  try {
-    await mockStore.pushRouteToServer(server.id, route.id)
-    notificationStore.showToast(`Pushed route "${route.pathPattern}"`, 'success')
-  } catch (error) {
-    notificationStore.showToast(error.message || 'Push route failed', 'error')
-  }
+  await copyRouteTo(route)
 }
 
 function ctxDelete() {
@@ -455,6 +520,39 @@ function ctxDelete() {
       await mockStore.deleteRoute(route.id)
     }
   })
+}
+
+// --- Group Context Menu ---
+const groupCtxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: null })
+
+function openGroupContextMenu(event, env, group) {
+  closeContextMenu()
+  groupCtxMenu.x = event.clientX
+  groupCtxMenu.y = event.clientY
+  groupCtxMenu.env = env
+  groupCtxMenu.group = group
+  groupCtxMenu.visible = true
+}
+
+function closeGroupContextMenu() {
+  groupCtxMenu.visible = false
+}
+
+function groupCtxAddRoute() {
+  addRoute(groupCtxMenu.group)
+  closeGroupContextMenu()
+}
+
+async function groupCtxCopyTo() {
+  const { group } = groupCtxMenu
+  closeGroupContextMenu()
+  await copyGroupTo(group)
+}
+
+function groupCtxDelete() {
+  const { group } = groupCtxMenu
+  closeGroupContextMenu()
+  confirmDeleteGroup(group)
 }
 
 function buildDocsHtml() {

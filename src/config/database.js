@@ -134,12 +134,29 @@ class Database {
             );
         `);
 
+        // Sync tracking table
+        await this.db.exec(`
+            CREATE TABLE IF NOT EXISTS sync_tracking (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id INTEGER NOT NULL,
+                pushed_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE,
+                UNIQUE(server_id, entity_type, entity_id)
+            );
+        `);
+
         // Migrate existing tables to add new columns
         await this.migrateResponsesTable();
         await this.migrateRequestsTable();
         await this.migrateRulesTable();
         await this.migrateRequestLogsTable();
         await this.migrateSlugColumns();
+        await this.migrateUpdatedAtColumns();
+        await this.migrateSyncTrackingHash();
+        await this.migrateEnvironmentServerId();
+        await this.migrateBasePathUnique();
     }
 
     async migrateResponsesTable() {
@@ -286,6 +303,84 @@ class Database {
             }
         } catch (error) {
             console.error('Slug migration error:', error);
+        }
+    }
+
+    async migrateUpdatedAtColumns() {
+        try {
+            for (const table of ['environments', 'groups', 'routes', 'rules']) {
+                const info = await this.db.all(`PRAGMA table_info(${table})`);
+                if (!info.find(c => c.name === 'updated_at')) {
+                    console.log(`Adding updated_at column to ${table} table`);
+                    await this.db.exec(`ALTER TABLE ${table} ADD COLUMN updated_at TIMESTAMP`);
+                    await this.db.exec(`UPDATE ${table} SET updated_at = created_at WHERE updated_at IS NULL`);
+                }
+            }
+        } catch (error) {
+            console.error('updated_at migration error:', error);
+        }
+    }
+
+    async migrateSyncTrackingHash() {
+        try {
+            const info = await this.db.all('PRAGMA table_info(sync_tracking)');
+            if (!info.find(c => c.name === 'content_hash')) {
+                console.log('Adding content_hash column to sync_tracking table');
+                await this.db.exec('ALTER TABLE sync_tracking ADD COLUMN content_hash TEXT');
+            }
+        } catch (error) {
+            console.error('sync_tracking hash migration error:', error);
+        }
+    }
+
+    async migrateEnvironmentServerId() {
+        try {
+            const info = await this.db.all('PRAGMA table_info(environments)');
+            if (!info.find(c => c.name === 'server_id')) {
+                console.log('Adding server_id column to environments table');
+                await this.db.exec('ALTER TABLE environments ADD COLUMN server_id INTEGER REFERENCES servers(id) ON DELETE SET NULL');
+            }
+        } catch (error) {
+            console.error('Environment server_id migration error:', error);
+        }
+    }
+
+    async migrateBasePathUnique() {
+        try {
+            // Remove the UNIQUE constraint on base_path since different servers can have same base_path
+            // SQLite requires recreating the table to drop constraints
+            const info = await this.db.all('PRAGMA table_info(environments)');
+            const hasServerId = info.find(c => c.name === 'server_id');
+            if (!hasServerId) return; // server_id migration not done yet
+
+            // Check if UNIQUE constraint still exists by looking at index info
+            const indexes = await this.db.all("PRAGMA index_list(environments)");
+            const uniqueIdx = indexes.find(i => i.unique === 1 && i.name.includes('autoindex'));
+            if (!uniqueIdx) return; // already migrated
+
+            console.log('Removing UNIQUE constraint from environments.base_path (allowing same base_path across servers)');
+            await this.db.exec('BEGIN TRANSACTION');
+            await this.db.exec(`
+                CREATE TABLE environments_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    base_path TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    is_active INTEGER DEFAULT 1,
+                    slug TEXT DEFAULT '',
+                    server_id INTEGER REFERENCES servers(id) ON DELETE SET NULL,
+                    updated_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                INSERT INTO environments_new SELECT id, name, base_path, description, is_active, slug, server_id, updated_at, created_at FROM environments;
+                DROP TABLE environments;
+                ALTER TABLE environments_new RENAME TO environments;
+            `);
+            await this.db.exec('COMMIT');
+            console.log('Environments table migrated successfully');
+        } catch (error) {
+            try { await this.db.exec('ROLLBACK'); } catch(e) {}
+            console.error('base_path UNIQUE migration error:', error);
         }
     }
 

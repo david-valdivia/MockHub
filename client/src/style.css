@@ -1,2 +1,15 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
+
+.swal-select-bordered {
+  border: 2px solid #d1d5db !important;
+  border-radius: 0.5rem !important;
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  transition: border-color 0.15s ease-in-out;
+}
+.swal-select-bordered:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+  outline: none !important;
+}

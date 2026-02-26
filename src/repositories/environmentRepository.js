@@ -2,8 +2,17 @@ const Environment = require('../models/environment');
 const database = require('../config/database');
 
 class EnvironmentRepository {
-    async findAll() {
+    async findAll(serverId = undefined) {
         const db = database.getConnection();
+        if (serverId === null) {
+            // Explicitly local: server_id IS NULL
+            const rows = await db.all('SELECT * FROM environments WHERE server_id IS NULL ORDER BY created_at DESC');
+            return rows.map(row => Environment.fromDatabase(row));
+        } else if (serverId !== undefined) {
+            const rows = await db.all('SELECT * FROM environments WHERE server_id = ? ORDER BY created_at DESC', [serverId]);
+            return rows.map(row => Environment.fromDatabase(row));
+        }
+        // No filter — all environments
         const rows = await db.all('SELECT * FROM environments ORDER BY created_at DESC');
         return rows.map(row => Environment.fromDatabase(row));
     }
@@ -29,9 +38,10 @@ class EnvironmentRepository {
     async create(data) {
         const db = database.getConnection();
         const slug = data.slug || this._slugify(data.name);
+        const serverId = data.server_id !== undefined ? data.server_id : null;
         const result = await db.run(
-            'INSERT INTO environments (name, base_path, description, is_active, slug) VALUES (?, ?, ?, ?, ?)',
-            [data.name, data.base_path, data.description || '', data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1, slug]
+            'INSERT INTO environments (name, base_path, description, is_active, slug, server_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+            [data.name, data.base_path, data.description || '', data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1, slug, serverId]
         );
         return this.findById(result.lastID);
     }
@@ -45,7 +55,9 @@ class EnvironmentRepository {
         if (data.description !== undefined) { setClauses.push('description = ?'); values.push(data.description); }
         if (data.is_active !== undefined) { setClauses.push('is_active = ?'); values.push(data.is_active ? 1 : 0); }
         if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
+        if (data.server_id !== undefined) { setClauses.push('server_id = ?'); values.push(data.server_id); }
         if (setClauses.length === 0) throw new Error('No fields to update');
+        setClauses.push('updated_at = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE environments SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);
@@ -61,8 +73,15 @@ class EnvironmentRepository {
         return result.changes > 0;
     }
 
-    async exists(basePath) {
+    async exists(basePath, serverId = undefined) {
         const db = database.getConnection();
+        if (serverId === null) {
+            const row = await db.get('SELECT 1 FROM environments WHERE base_path = ? AND server_id IS NULL LIMIT 1', basePath);
+            return !!row;
+        } else if (serverId !== undefined) {
+            const row = await db.get('SELECT 1 FROM environments WHERE base_path = ? AND server_id = ? LIMIT 1', [basePath, serverId]);
+            return !!row;
+        }
         const row = await db.get('SELECT 1 FROM environments WHERE base_path = ? LIMIT 1', basePath);
         return !!row;
     }

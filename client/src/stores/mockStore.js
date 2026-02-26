@@ -12,14 +12,29 @@ export const useMockStore = defineStore('mock', () => {
   const loading = ref(false)
   const servers = ref([])
   const activeServer = ref(null)
+  const syncStatus = ref(null) // { environments: {id: {status}}, groups: {}, routes: {} }
+  const activeSyncServerId = ref(null)
 
   const activeEnvironmentId = computed(() => activeEnvironment.value?.id || null)
   const activeRouteId = computed(() => activeRoute.value?.id || null)
 
+  // Refresh sync status if a server is selected (non-blocking, fire-and-forget)
+  function refreshSyncStatus() {
+    if (activeSyncServerId.value) {
+      loadSyncStatus(activeSyncServerId.value)
+    }
+  }
+
   async function loadEnvironments() {
     try {
       loading.value = true
-      const response = await webhookApi.getEnvironments()
+      const params = {}
+      if (activeSyncServerId.value) {
+        params.server_id = activeSyncServerId.value
+      } else {
+        params.server_id = 'local'
+      }
+      const response = await webhookApi.getEnvironments(params)
       environments.value = response.data
     } catch (error) {
       console.error('Failed to load environments:', error)
@@ -44,8 +59,13 @@ export const useMockStore = defineStore('mock', () => {
   }
 
   async function createEnvironment(data) {
+    // Tag new environments with the active server
+    if (activeSyncServerId.value) {
+      data.server_id = activeSyncServerId.value
+    }
     const response = await webhookApi.createEnvironment(data)
     await loadEnvironments()
+    refreshSyncStatus()
     return response.data
   }
 
@@ -55,6 +75,7 @@ export const useMockStore = defineStore('mock', () => {
       await selectEnvironment(id)
     }
     await loadEnvironments()
+    refreshSyncStatus()
     return response.data
   }
 
@@ -66,6 +87,7 @@ export const useMockStore = defineStore('mock', () => {
       routeLogs.value = []
     }
     await loadEnvironments()
+    refreshSyncStatus()
   }
 
   async function createGroup(envId, data) {
@@ -73,6 +95,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeEnvironmentId.value === envId) {
       await selectEnvironment(envId)
     }
+    refreshSyncStatus()
     return response.data
   }
 
@@ -81,6 +104,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeEnvironment.value) {
       await selectEnvironment(activeEnvironment.value.id)
     }
+    refreshSyncStatus()
   }
 
   async function createRoute(groupId, data) {
@@ -88,6 +112,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeEnvironment.value) {
       await selectEnvironment(activeEnvironment.value.id)
     }
+    refreshSyncStatus()
     return response.data
   }
 
@@ -110,6 +135,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeEnvironment.value) {
       await selectEnvironment(activeEnvironment.value.id)
     }
+    refreshSyncStatus()
     return response.data
   }
 
@@ -122,6 +148,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeEnvironment.value) {
       await selectEnvironment(activeEnvironment.value.id)
     }
+    refreshSyncStatus()
   }
 
   async function createRule(routeId, data) {
@@ -129,6 +156,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeRouteId.value === routeId) {
       await selectRoute(routeId)
     }
+    refreshSyncStatus()
     return response.data
   }
 
@@ -137,6 +165,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeRoute.value) {
       await selectRoute(activeRoute.value.id)
     }
+    refreshSyncStatus()
     return response.data
   }
 
@@ -145,6 +174,7 @@ export const useMockStore = defineStore('mock', () => {
     if (activeRoute.value) {
       await selectRoute(activeRoute.value.id)
     }
+    refreshSyncStatus()
   }
 
   async function loadRouteLogs(routeId) {
@@ -161,6 +191,12 @@ export const useMockStore = defineStore('mock', () => {
     routeLogs.value = []
   }
 
+  async function copyEnvironmentToServer(envId, targetServerId) {
+    const response = await webhookApi.copyEnvironmentToServer(envId, targetServerId)
+    await loadEnvironments()
+    return response.data
+  }
+
   async function exportEnvironment(id) {
     const response = await webhookApi.exportEnvironment(id)
     return response.data
@@ -169,6 +205,7 @@ export const useMockStore = defineStore('mock', () => {
   async function importEnvironment(data) {
     const response = await webhookApi.importEnvironment(data)
     await loadEnvironments()
+    refreshSyncStatus()
     return response.data
   }
 
@@ -199,6 +236,10 @@ export const useMockStore = defineStore('mock', () => {
     if (activeServer.value?.id === id) {
       activeServer.value = null
     }
+    if (activeSyncServerId.value === id) {
+      activeSyncServerId.value = null
+      syncStatus.value = null
+    }
     await loadServers()
   }
 
@@ -215,29 +256,82 @@ export const useMockStore = defineStore('mock', () => {
   async function pullFromServer(serverId, envSlug) {
     const response = await webhookApi.pullFromServer(serverId, { envSlug })
     await loadEnvironments()
+    await loadServers()
+    refreshSyncStatus()
     return response.data
   }
 
   async function pushToServer(serverId, envId) {
     const response = await webhookApi.pushToServer(serverId, { envId })
     await loadServers()
+    refreshSyncStatus()
     return response.data
   }
 
   async function pushGroupToServer(serverId, groupId) {
     const response = await webhookApi.pushGroupToServer(serverId, { groupId })
     await loadServers()
+    refreshSyncStatus()
     return response.data
   }
 
   async function pushRouteToServer(serverId, routeId) {
     const response = await webhookApi.pushRouteToServer(serverId, { routeId })
     await loadServers()
+    refreshSyncStatus()
     return response.data
   }
 
   function setActiveServer(server) {
     activeServer.value = server
+  }
+
+  async function loadSyncStatus(serverId) {
+    try {
+      activeSyncServerId.value = serverId
+      const response = await webhookApi.getServerSyncStatus(serverId)
+      syncStatus.value = response.data
+    } catch (error) {
+      console.error('Failed to load sync status:', error)
+      syncStatus.value = null
+    }
+  }
+
+  async function selectRemoteServer(serverId) {
+    activeSyncServerId.value = serverId
+    activeEnvironment.value = null
+    activeRoute.value = null
+    routeLogs.value = []
+    await loadEnvironments()
+  }
+
+  async function selectLocalServer() {
+    activeSyncServerId.value = null
+    syncStatus.value = null
+    activeEnvironment.value = null
+    activeRoute.value = null
+    routeLogs.value = []
+    await loadEnvironments()
+  }
+
+  function clearSyncStatus() {
+    activeSyncServerId.value = null
+    syncStatus.value = null
+    remoteEnvironments.value = []
+  }
+
+  async function copyBetweenServers(sourceId, targetId, envSlug) {
+    const response = await webhookApi.copyBetweenServers(sourceId, targetId, { envSlug })
+    await loadEnvironments()
+    refreshSyncStatus()
+    return response.data
+  }
+
+  function getSyncStatusFor(entityType, entityId) {
+    if (!syncStatus.value) return null
+    const map = syncStatus.value[entityType + 's']
+    if (!map) return null
+    return map[entityId]?.status || null
   }
 
   function setupSocketListeners() {
@@ -287,9 +381,11 @@ export const useMockStore = defineStore('mock', () => {
     createRoute, selectRoute, updateRoute, deleteRoute,
     createRule, updateRule, deleteRule,
     loadRouteLogs, clearRouteLogs,
-    exportEnvironment, importEnvironment,
+    exportEnvironment, importEnvironment, copyEnvironmentToServer,
     loadServers, createServer, updateServer, deleteServer,
     testServerConnection, getServerEnvironments,
-    pullFromServer, pushToServer, pushGroupToServer, pushRouteToServer, setActiveServer
+    pullFromServer, pushToServer, pushGroupToServer, pushRouteToServer, setActiveServer,
+    syncStatus, activeSyncServerId, loadSyncStatus, clearSyncStatus, copyBetweenServers, getSyncStatusFor,
+    selectRemoteServer, selectLocalServer
   }
 })

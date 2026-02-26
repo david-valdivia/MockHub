@@ -32,7 +32,7 @@ class RouteRepository {
         const db = database.getConnection();
         const slug = data.slug || this._slugify(data.path_pattern);
         const result = await db.run(
-            'INSERT INTO routes (group_id, method, path_pattern, capture_requests, slug) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO routes (group_id, method, path_pattern, capture_requests, slug, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
             [data.group_id, (data.method || 'ALL').toUpperCase(), data.path_pattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1, slug]
         );
         return this.findById(result.lastID);
@@ -48,6 +48,7 @@ class RouteRepository {
         if (data.group_id !== undefined) { setClauses.push('group_id = ?'); values.push(data.group_id); }
         if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
         if (setClauses.length === 0) throw new Error('No fields to update');
+        setClauses.push('updated_at = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE routes SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);

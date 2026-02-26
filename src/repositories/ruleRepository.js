@@ -45,6 +45,7 @@ class RuleRepository {
         if (data.webhook_content_type !== undefined) { setClauses.push('webhook_content_type = ?'); values.push(data.webhook_content_type); }
         if (data.webhook_enabled !== undefined) { setClauses.push('webhook_enabled = ?'); values.push(data.webhook_enabled ? 1 : 0); }
         if (setClauses.length === 0) throw new Error('No fields to update');
+        setClauses.push('updated_at = CURRENT_TIMESTAMP');
         values.push(id);
         await db.run(`UPDATE rules SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);

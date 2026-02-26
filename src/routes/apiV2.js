@@ -16,6 +16,7 @@ router.get('/environments/:id', (req, res) => environmentController.getById(req,
 router.put('/environments/:id', (req, res) => environmentController.update(req, res));
 router.delete('/environments/:id', (req, res) => environmentController.delete(req, res));
 router.get('/environments/:id/tree', (req, res) => environmentController.getFullTree(req, res));
+router.post('/environments/:id/copy', (req, res) => environmentController.copyToServer(req, res));
 
 // Groups
 router.get('/environments/:envId/groups', (req, res) => groupController.getByEnvironment(req, res));
@@ -58,5 +59,7 @@ router.post('/servers/:id/pull', (req, res) => serverController.pull(req, res));
 router.post('/servers/:id/push', (req, res) => serverController.push(req, res));
 router.post('/servers/:id/push/group', (req, res) => serverController.pushGroup(req, res));
 router.post('/servers/:id/push/route', (req, res) => serverController.pushRoute(req, res));
+router.get('/servers/:id/sync-status', (req, res) => serverController.getSyncStatus(req, res));
+router.post('/servers/:sourceId/copy/:targetId', (req, res) => serverController.copyEnvironment(req, res));
 
 module.exports = router;

@@ -10,12 +10,30 @@
       </div>
     </div>
 
-    <!-- Server list -->
-    <div v-if="mockStore.servers.length === 0" class="px-4 py-3 text-xs text-gray-400 text-center">
-      No servers configured
-    </div>
+    <div class="py-1">
+      <!-- Local server (always first, always present) -->
+      <div class="mx-2 mb-0.5">
+        <div
+          class="flex items-center px-3 py-2 rounded-lg cursor-pointer group text-sm"
+          :class="isLocalActive ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'"
+          @click="selectLocal"
+        >
+          <span
+            class="h-2.5 w-2.5 rounded-full border-2 mr-2 flex-shrink-0 transition-colors"
+            :class="isLocalActive ? 'border-blue-500 bg-blue-500' : 'border-gray-300 bg-white'"
+          ></span>
+          <ComputerDesktopIcon class="h-4 w-4 mr-2 flex-shrink-0" :class="isLocalActive ? 'text-blue-500' : 'text-gray-400'" />
+          <span class="text-xs font-medium truncate flex-1">Local</span>
+        </div>
 
-    <div v-else class="py-1">
+        <div v-if="isLocalActive" class="ml-7 mr-2 mb-2">
+          <p class="text-[10px] text-gray-400 leading-relaxed px-1 py-1.5">
+            Data stored in local database. Lost if database is deleted. Use <strong class="text-gray-500">Copy To...</strong> to back up to a server.
+          </p>
+        </div>
+      </div>
+
+      <!-- Remote servers -->
       <div
         v-for="server in mockStore.servers"
         :key="server.id"
@@ -24,14 +42,14 @@
         <!-- Server row -->
         <div
           class="flex items-center px-3 py-2 rounded-lg cursor-pointer group text-sm"
-          :class="expandedServer === server.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'"
-          @click="toggleServer(server)"
+          :class="isServerActive(server.id) ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-100 text-gray-700'"
+          @click="selectServer(server)"
         >
-          <ChevronRightIcon
-            class="h-3 w-3 mr-1.5 transition-transform flex-shrink-0"
-            :class="{ 'rotate-90': expandedServer === server.id }"
-          />
-          <CloudIcon class="h-4 w-4 mr-2 flex-shrink-0 text-gray-400" />
+          <span
+            class="h-2.5 w-2.5 rounded-full border-2 mr-2 flex-shrink-0 transition-colors"
+            :class="isServerActive(server.id) ? 'border-blue-500 bg-blue-500' : 'border-gray-300 bg-white'"
+          ></span>
+          <CloudIcon class="h-4 w-4 mr-2 flex-shrink-0" :class="isServerActive(server.id) ? 'text-blue-500' : 'text-gray-400'" />
           <span class="text-xs font-medium truncate flex-1">{{ server.name }}</span>
           <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button @click.stop="editServer(server)" class="p-0.5 hover:bg-gray-200 rounded" title="Edit">
@@ -44,34 +62,34 @@
         </div>
 
         <!-- Expanded server panel -->
-        <div v-if="expandedServer === server.id" class="ml-6 mr-2 mb-2">
+        <div v-if="isServerActive(server.id)" class="ml-7 mr-2 mb-2">
           <!-- Last sync -->
-          <p v-if="server.lastSync" class="text-[10px] text-gray-400 mb-2 px-1">
+          <p v-if="server.lastSync" class="text-[10px] text-gray-400 mb-1 px-1">
             Last sync: {{ new Date(server.lastSync).toLocaleString() }}
           </p>
 
           <!-- Action buttons -->
-          <div class="flex space-x-2 mb-2">
+          <div class="flex space-x-2 mb-1">
             <button
               @click="loadRemoteEnvs(server)"
               :disabled="loadingRemote"
               class="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center space-x-1"
             >
               <ArrowDownTrayIcon class="h-3 w-3" />
-              <span>{{ loadingRemote ? 'Loading...' : 'Pull' }}</span>
+              <span>{{ loadingRemote ? 'Loading...' : 'Pull from GitHub' }}</span>
             </button>
             <button
               @click="showPushPanel = !showPushPanel"
               class="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center space-x-1"
             >
               <ArrowUpTrayIcon class="h-3 w-3" />
-              <span>Push</span>
+              <span>Push to GitHub</span>
             </button>
           </div>
 
-          <!-- Remote environments (Pull) -->
+          <!-- Remote environments (Pull from GitHub) -->
           <div v-if="remoteEnvs.length > 0" class="bg-white border border-gray-200 rounded-lg mb-2">
-            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Remote Environments</p>
+            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">GitHub Environments</p>
             <div
               v-for="env in remoteEnvs"
               :key="env.slug"
@@ -93,7 +111,7 @@
 
           <!-- Push panel -->
           <div v-if="showPushPanel" class="bg-white border border-gray-200 rounded-lg">
-            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Push Local Environment</p>
+            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Push to GitHub</p>
             <div
               v-for="env in mockStore.environments"
               :key="env.id"
@@ -112,7 +130,7 @@
               </button>
             </div>
             <div v-if="mockStore.environments.length === 0" class="px-2 py-2 text-xs text-gray-400 text-center">
-              No local environments
+              No environments in this server
             </div>
           </div>
         </div>
@@ -125,11 +143,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
-  PlusIcon, ChevronRightIcon, CloudIcon, PencilSquareIcon, TrashIcon,
+  PlusIcon, CloudIcon, ComputerDesktopIcon, PencilSquareIcon, TrashIcon,
   ArrowDownTrayIcon, ArrowUpTrayIcon
 } from '@heroicons/vue/24/outline'
 import ServerModal from './ServerModal.vue'
@@ -141,23 +159,28 @@ const notificationStore = useNotificationStore()
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const editingServer = ref(null)
-const expandedServer = ref(null)
 const remoteEnvs = ref([])
 const loadingRemote = ref(false)
 const pulling = ref(null)
 const pushing = ref(null)
 const showPushPanel = ref(false)
 
-function toggleServer(server) {
-  if (expandedServer.value === server.id) {
-    expandedServer.value = null
-    remoteEnvs.value = []
-    showPushPanel.value = false
-  } else {
-    expandedServer.value = server.id
-    remoteEnvs.value = []
-    showPushPanel.value = false
-  }
+const isLocalActive = computed(() => !mockStore.activeSyncServerId)
+function isServerActive(serverId) {
+  return mockStore.activeSyncServerId === serverId
+}
+
+function selectLocal() {
+  mockStore.selectLocalServer()
+  remoteEnvs.value = []
+  showPushPanel.value = false
+}
+
+function selectServer(server) {
+  if (mockStore.activeSyncServerId === server.id) return
+  remoteEnvs.value = []
+  showPushPanel.value = false
+  mockStore.selectRemoteServer(server.id)
 }
 
 function editServer(server) {
@@ -175,9 +198,6 @@ function confirmDeleteServer(server) {
     confirmButtonText: 'Delete',
     preConfirm: async () => {
       await mockStore.deleteServer(server.id)
-      if (expandedServer.value === server.id) {
-        expandedServer.value = null
-      }
     }
   })
 }
@@ -210,7 +230,7 @@ async function doPull(server, env) {
 
 async function doPush(server, env) {
   const { isConfirmed } = await Swal.fire({
-    title: 'Push to GitHub?',
+    title: 'Push to ' + server.name + '?',
     text: `Push "${env.name}" to ${server.name}? This will create/update files in the repo.`,
     icon: 'question',
     showCancelButton: true,

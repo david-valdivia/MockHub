@@ -5,6 +5,7 @@ class Environment {
         this.basePath = data.base_path;
         this.description = data.description || '';
         this.slug = data.slug || '';
+        this.serverId = data.server_id || null;
         this.isActive = data.is_active !== undefined ? Boolean(data.is_active) : true;
         this.createdAt = data.created_at;
     }
@@ -20,6 +21,7 @@ class Environment {
             basePath: this.basePath,
             description: this.description,
             slug: this.slug,
+            serverId: this.serverId,
             isActive: this.isActive,
             createdAt: this.createdAt
         };

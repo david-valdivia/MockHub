@@ -3,6 +3,8 @@ const groupRepo = require('../repositories/groupRepository');
 const routeRepo = require('../repositories/routeRepository');
 const ruleRepo = require('../repositories/ruleRepository');
 const serverRepo = require('../repositories/serverRepository');
+const syncTrackingRepo = require('../repositories/syncTrackingRepository');
+const contentHashService = require('./contentHashService');
 const Environment = require('../models/environment');
 const Server = require('../models/server');
 
@@ -49,14 +51,12 @@ class GitHubSyncService {
         const { owner, repo } = this._parseRepo(serverData.repo_url);
         const token = serverData.token;
 
-        // Test repo access
         const repoInfo = await this._githubRequest(
             'GET',
             `${GITHUB_API}/repos/${owner}/${repo}`,
             token
         );
 
-        // Check permissions
         const permissions = repoInfo.permissions || {};
         const canPush = permissions.push || permissions.admin;
 
@@ -83,7 +83,7 @@ class GitHubSyncService {
             );
         } catch (err) {
             if (err.message.includes('404')) {
-                return []; // Empty repo
+                return [];
             }
             throw err;
         }
@@ -114,7 +114,6 @@ class GitHubSyncService {
         const { owner, repo } = this._parseRepo(serverRow.repo_url);
         const branch = serverRow.branch || 'main';
 
-        // Read _environment.json
         const envFile = await this._githubRequest(
             'GET',
             `${GITHUB_API}/repos/${owner}/${repo}/contents/${envSlug}/_environment.json?ref=${branch}`,
@@ -122,7 +121,6 @@ class GitHubSyncService {
         );
         const envData = JSON.parse(Buffer.from(envFile.content, 'base64').toString('utf-8'));
 
-        // List groups (subdirectories)
         const envContents = await this._githubRequest(
             'GET',
             `${GITHUB_API}/repos/${owner}/${repo}/contents/${envSlug}?ref=${branch}`,
@@ -133,7 +131,6 @@ class GitHubSyncService {
         const groups = [];
 
         for (const groupDir of groupDirs) {
-            // Read _group.json
             let groupData = { name: groupDir.name, sort_order: 0 };
             try {
                 const groupFile = await this._githubRequest(
@@ -143,10 +140,9 @@ class GitHubSyncService {
                 );
                 groupData = JSON.parse(Buffer.from(groupFile.content, 'base64').toString('utf-8'));
             } catch {
-                // Use defaults if no _group.json
+                // Use defaults
             }
 
-            // List route files
             const groupContents = await this._githubRequest(
                 'GET',
                 `${GITHUB_API}/repos/${owner}/${repo}/contents/${envSlug}/${groupDir.name}?ref=${branch}`,
@@ -171,7 +167,6 @@ class GitHubSyncService {
             });
         }
 
-        // Build import format compatible with existing import logic
         const importData = {
             mockhub_version: '1.0',
             exported_at: new Date().toISOString(),
@@ -186,12 +181,12 @@ class GitHubSyncService {
         return importData;
     }
 
-    async importPulledEnvironment(importData) {
+    async importPulledEnvironment(importData, serverId = null) {
         const envData = importData.environment;
         let basePath = Environment.sanitizeBasePath(envData.base_path);
 
         let counter = 1;
-        while (await environmentRepo.exists(basePath)) {
+        while (await environmentRepo.exists(basePath, serverId)) {
             basePath = Environment.sanitizeBasePath(envData.base_path) + '-' + counter;
             counter++;
         }
@@ -200,7 +195,8 @@ class GitHubSyncService {
             name: envData.name,
             base_path: basePath,
             description: envData.description || '',
-            slug: this.slugify(envData.name)
+            slug: this.slugify(envData.name),
+            server_id: serverId
         });
 
         for (const groupData of (envData.groups || [])) {
@@ -249,7 +245,6 @@ class GitHubSyncService {
         const { owner, repo } = this._parseRepo(serverRow.repo_url);
         const branch = serverRow.branch || 'main';
 
-        // Load full environment tree
         const env = await environmentRepo.findById(envId);
         if (!env) throw new Error('Environment not found');
 
@@ -267,7 +262,6 @@ class GitHubSyncService {
             const groupSlug = group.slug || this.slugify(group.name);
             const routes = await routeRepo.findByGroupId(group.id);
 
-            // Write _group.json
             await this._putFile(owner, repo, branch, serverRow.token,
                 `${envSlug}/${groupSlug}/_group.json`,
                 JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
@@ -279,9 +273,34 @@ class GitHubSyncService {
             }
         }
 
-        // Update last_sync
-        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
+        // Record sync tracking with content hashes
+        const envHash = await contentHashService.envHash(env.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'environment', env.id, envHash);
 
+        for (const group of groups) {
+            const groupHash = await contentHashService.groupHash(group.id);
+            await syncTrackingRepo.recordPush(serverRow.id, 'group', group.id, groupHash);
+            const groupRoutes = await routeRepo.findByGroupId(group.id);
+            for (const route of groupRoutes) {
+                const routeHash = await contentHashService.routeWithRulesHash(route.id);
+                await syncTrackingRepo.recordPush(serverRow.id, 'route', route.id, routeHash);
+                const rules = await ruleRepo.findByRouteId(route.id);
+                for (const rule of rules) {
+                    const ruleHash = contentHashService.hash(contentHashService.ruleContent(rule));
+                    await syncTrackingRepo.recordPush(serverRow.id, 'rule', rule.id, ruleHash);
+                }
+            }
+        }
+
+        // Write _metadata.json
+        const metadata = await contentHashService.buildEnvironmentMetadata(envId);
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/_metadata.json`,
+            JSON.stringify(metadata, null, 2),
+            `MockHub metadata: ${env.name}`
+        );
+
+        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
         return { success: true, envSlug };
     }
 
@@ -299,14 +318,12 @@ class GitHubSyncService {
         const groupSlug = group.slug || this.slugify(group.name);
         const routes = await routeRepo.findByGroupId(group.id);
 
-        // Ensure _environment.json exists
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/_environment.json`,
             JSON.stringify({ name: env.name, base_path: env.basePath, description: env.description }, null, 2),
             `MockHub sync: ${env.name}`
         );
 
-        // Write _group.json
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/${groupSlug}/_group.json`,
             JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
@@ -315,7 +332,27 @@ class GitHubSyncService {
 
         for (const route of routes) {
             await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
+            const routeHash = await contentHashService.routeWithRulesHash(route.id);
+            await syncTrackingRepo.recordPush(serverRow.id, 'route', route.id, routeHash);
+            const rules = await ruleRepo.findByRouteId(route.id);
+            for (const rule of rules) {
+                const ruleHash = contentHashService.hash(contentHashService.ruleContent(rule));
+                await syncTrackingRepo.recordPush(serverRow.id, 'rule', rule.id, ruleHash);
+            }
         }
+
+        const envHash = await contentHashService.envHash(env.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'environment', env.id, envHash);
+        const groupHash = await contentHashService.groupHash(group.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'group', group.id, groupHash);
+
+        // Update _metadata.json
+        const metadata = await contentHashService.buildEnvironmentMetadata(env.id);
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/_metadata.json`,
+            JSON.stringify(metadata, null, 2),
+            `MockHub metadata: ${env.name}`
+        );
 
         await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
         return { success: true, envSlug, groupSlug };
@@ -337,14 +374,12 @@ class GitHubSyncService {
         const envSlug = env.slug || this.slugify(env.name);
         const groupSlug = group.slug || this.slugify(group.name);
 
-        // Ensure _environment.json exists
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/_environment.json`,
             JSON.stringify({ name: env.name, base_path: env.basePath, description: env.description }, null, 2),
             `MockHub sync: ${env.name}`
         );
 
-        // Ensure _group.json exists
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/${groupSlug}/_group.json`,
             JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
@@ -353,8 +388,35 @@ class GitHubSyncService {
 
         await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
 
+        const envHash = await contentHashService.envHash(env.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'environment', env.id, envHash);
+        const groupHash = await contentHashService.groupHash(group.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'group', group.id, groupHash);
+        const routeHash = await contentHashService.routeWithRulesHash(route.id);
+        await syncTrackingRepo.recordPush(serverRow.id, 'route', route.id, routeHash);
+        const rules = await ruleRepo.findByRouteId(route.id);
+        for (const rule of rules) {
+            const ruleHash = contentHashService.hash(contentHashService.ruleContent(rule));
+            await syncTrackingRepo.recordPush(serverRow.id, 'rule', rule.id, ruleHash);
+        }
+
+        // Update _metadata.json
+        const metadata = await contentHashService.buildEnvironmentMetadata(env.id);
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/_metadata.json`,
+            JSON.stringify(metadata, null, 2),
+            `MockHub metadata: ${env.name}`
+        );
+
         await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
         return { success: true, envSlug, groupSlug, routeSlug: route.slug || this.slugify(route.pathPattern) };
+    }
+
+    async copyEnvironment(sourceServerRow, targetServerRow, envSlug) {
+        const importData = await this.pullEnvironment(sourceServerRow, envSlug);
+        const env = await this.importPulledEnvironment(importData, targetServerRow.id);
+        await this.pushEnvironment(targetServerRow, env.id);
+        return env;
     }
 
     async _pushSingleRoute(owner, repo, branch, token, envSlug, groupSlug, envName, groupName, route) {
@@ -402,13 +464,12 @@ class GitHubSyncService {
     async _putFile(owner, repo, branch, token, path, content, message) {
         const url = `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`;
 
-        // Check if file already exists (to get SHA for update)
         let sha = null;
         try {
             const existing = await this._githubRequest('GET', `${url}?ref=${branch}`, token);
             sha = existing.sha;
         } catch {
-            // File doesn't exist yet, that's fine
+            // File doesn't exist yet
         }
 
         const body = {

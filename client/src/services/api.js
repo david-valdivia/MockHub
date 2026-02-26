@@ -55,12 +55,13 @@ export const webhookApi = {
 
   // MockHub API v2
   // Environments
-  getEnvironments: () => apiClient.get('/v2/environments'),
+  getEnvironments: (params) => apiClient.get('/v2/environments', { params }),
   createEnvironment: (data) => apiClient.post('/v2/environments', data),
   getEnvironment: (id) => apiClient.get(`/v2/environments/${id}`),
   updateEnvironment: (id, data) => apiClient.put(`/v2/environments/${id}`, data),
   deleteEnvironment: (id) => apiClient.delete(`/v2/environments/${id}`),
   getEnvironmentTree: (id) => apiClient.get(`/v2/environments/${id}/tree`),
+  copyEnvironmentToServer: (id, targetServerId) => apiClient.post(`/v2/environments/${id}/copy`, { target_server_id: targetServerId }),
 
   // Groups
   getGroups: (envId) => apiClient.get(`/v2/environments/${envId}/groups`),
@@ -103,6 +104,8 @@ export const webhookApi = {
   pushToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push`, data, { timeout: 60000 }),
   pushGroupToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/group`, data, { timeout: 60000 }),
   pushRouteToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/route`, data, { timeout: 60000 }),
+  getServerSyncStatus: (id) => apiClient.get(`/v2/servers/${id}/sync-status`),
+  copyBetweenServers: (sourceId, targetId, data) => apiClient.post(`/v2/servers/${sourceId}/copy/${targetId}`, data, { timeout: 120000 }),
 }
 
 export default apiClient
