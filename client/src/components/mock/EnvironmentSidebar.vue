@@ -177,6 +177,10 @@
           <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Copy To...</span>
         </button>
+        <button v-if="mockStore.activeSyncServerId" @click="ctxPushRoute" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <ArrowUpTrayIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Push to GitHub</span>
+        </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="ctxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
           <TrashIcon class="h-3.5 w-3.5" />
@@ -214,6 +218,10 @@
         <button v-if="hasAnyCopyTarget" @click="groupCtxCopyTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Copy To...</span>
+        </button>
+        <button v-if="mockStore.activeSyncServerId" @click="groupCtxPush" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <ArrowUpTrayIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Push to GitHub</span>
         </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="groupCtxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
@@ -256,6 +264,10 @@
         <button @click="envCtxExport" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <ArrowDownTrayIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Export</span>
+        </button>
+        <button v-if="mockStore.activeSyncServerId" @click="envCtxPush" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <ArrowUpTrayIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Push to GitHub</span>
         </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="envCtxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
@@ -865,6 +877,27 @@ function ctxDelete() {
   })
 }
 
+async function ctxPushRoute() {
+  const { route } = ctxMenu
+  closeContextMenu()
+  const serverId = mockStore.activeSyncServerId
+  if (!serverId) return
+  Swal.fire({
+    title: 'Pushing route...',
+    html: `<span class="text-sm text-gray-500">${route.name || route.pathPattern}</span>`,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading()
+  })
+  try {
+    await mockStore.pushRouteToServer(serverId, route.id)
+    mockStore.refreshSyncStatus()
+    Swal.fire({ icon: 'success', title: 'Route pushed', timer: 1500, showConfirmButton: false })
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Push failed', text: e.message || 'Unknown error' })
+  }
+}
+
 // --- Group Context Menu ---
 const groupCtxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: null })
 
@@ -897,6 +930,27 @@ function groupCtxDelete() {
   const { group } = groupCtxMenu
   closeGroupContextMenu()
   confirmDeleteGroup(group)
+}
+
+async function groupCtxPush() {
+  const { group } = groupCtxMenu
+  closeGroupContextMenu()
+  const serverId = mockStore.activeSyncServerId
+  if (!serverId) return
+  Swal.fire({
+    title: 'Pushing group...',
+    html: `<span class="text-sm text-gray-500">${group.name}</span>`,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading()
+  })
+  try {
+    await mockStore.pushGroupToServer(serverId, group.id)
+    mockStore.refreshSyncStatus()
+    Swal.fire({ icon: 'success', title: 'Group pushed', timer: 1500, showConfirmButton: false })
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Push failed', text: e.message || 'Unknown error' })
+  }
 }
 
 async function groupCtxEditName() {
@@ -1011,6 +1065,27 @@ async function envCtxCopyTo() {
 function envCtxExport() {
   doExport(envCtxMenu.env)
   closeEnvContextMenu()
+}
+
+async function envCtxPush() {
+  const { env } = envCtxMenu
+  closeEnvContextMenu()
+  const serverId = mockStore.activeSyncServerId
+  if (!serverId) return
+  Swal.fire({
+    title: 'Pushing environment...',
+    html: `<span class="text-sm text-gray-500">${env.name}</span>`,
+    allowOutsideClick: false,
+    showConfirmButton: false,
+    didOpen: () => Swal.showLoading()
+  })
+  try {
+    await mockStore.pushToServer(serverId, env.id)
+    mockStore.refreshSyncStatus()
+    Swal.fire({ icon: 'success', title: 'Environment pushed', timer: 1500, showConfirmButton: false })
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Push failed', text: e.message || 'Unknown error' })
+  }
 }
 
 function envCtxDelete() {

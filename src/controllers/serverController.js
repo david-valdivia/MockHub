@@ -102,6 +102,30 @@ class ServerController {
             const importData = await githubSyncService.pullEnvironment(serverRow, envSlug);
             const env = await githubSyncService.importPulledEnvironment(importData, id);
 
+            // Record sync tracking hashes (same as push) so sync status is accurate
+            const envHash = await contentHashService.envHash(env.id);
+            await syncTrackingRepo.recordPush(id, 'environment', env.id, envHash);
+
+            const groups = await groupRepo.findByEnvironmentId(env.id);
+            for (const group of groups) {
+                const groupHash = await contentHashService.groupHash(group.id);
+                await syncTrackingRepo.recordPush(id, 'group', group.id, groupHash);
+                const routes = await routeRepo.findByGroupId(group.id);
+                for (const route of routes) {
+                    const routeHash = await contentHashService.routeWithRulesHash(route.id);
+                    await syncTrackingRepo.recordPush(id, 'route', route.id, routeHash);
+                    const rules = await ruleRepo.findByRouteId(route.id);
+                    for (const rule of rules) {
+                        const ruleHash = contentHashService.hash(contentHashService.ruleContent(rule));
+                        await syncTrackingRepo.recordPush(id, 'rule', rule.id, ruleHash);
+                    }
+                }
+            }
+
+            // Write _metadata.json to GitHub so repo always reflects current state
+            const metadata = await contentHashService.buildEnvironmentMetadata(env.id);
+            await githubSyncService.writeMetadata(serverRow, env, metadata);
+
             // Update last_sync
             await serverRepo.update(id, { last_sync: new Date().toISOString() });
 

@@ -330,11 +330,7 @@ class GitHubSyncService {
 
         // Write _metadata.json
         const metadata = await contentHashService.buildEnvironmentMetadata(envId);
-        await this._putFile(owner, repo, branch, serverRow.token,
-            `${envSlug}/_metadata.json`,
-            JSON.stringify(metadata, null, 2),
-            `MockHub metadata: ${env.name}`
-        );
+        await this.writeMetadata(serverRow, env, metadata);
 
         await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
         return { success: true, envSlug };
@@ -384,11 +380,7 @@ class GitHubSyncService {
 
         // Update _metadata.json
         const metadata = await contentHashService.buildEnvironmentMetadata(env.id);
-        await this._putFile(owner, repo, branch, serverRow.token,
-            `${envSlug}/_metadata.json`,
-            JSON.stringify(metadata, null, 2),
-            `MockHub metadata: ${env.name}`
-        );
+        await this.writeMetadata(serverRow, env, metadata);
 
         await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
         return { success: true, envSlug, groupSlug };
@@ -438,14 +430,21 @@ class GitHubSyncService {
 
         // Update _metadata.json
         const metadata = await contentHashService.buildEnvironmentMetadata(env.id);
+        await this.writeMetadata(serverRow, env, metadata);
+
+        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
+        return { success: true, envSlug, groupSlug, routeSlug: route.slug || this.slugify(route.pathPattern) };
+    }
+
+    async writeMetadata(serverRow, env, metadata) {
+        const { owner, repo } = this._parseRepo(serverRow.repo_url);
+        const branch = serverRow.branch || 'main';
+        const envSlug = env.slug || this.slugify(env.name);
         await this._putFile(owner, repo, branch, serverRow.token,
             `${envSlug}/_metadata.json`,
             JSON.stringify(metadata, null, 2),
             `MockHub metadata: ${env.name}`
         );
-
-        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
-        return { success: true, envSlug, groupSlug, routeSlug: route.slug || this.slugify(route.pathPattern) };
     }
 
     async copyEnvironment(sourceServerRow, targetServerRow, envSlug) {

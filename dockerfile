@@ -12,6 +12,9 @@ RUN cd client && npm install
 COPY client/ ./client/
 RUN cd client && npm run build
 
+# Copy logo as favicon to built output
+COPY image.png ./public-vue/favicon.png
+
 # Copy backend source
 COPY app.js ./
 COPY src/ ./src/

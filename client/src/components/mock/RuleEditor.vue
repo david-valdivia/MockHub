@@ -129,21 +129,21 @@
           </div>
         </div>
 
-        <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+        <div class="border border-gray-300 rounded-lg overflow-hidden">
           <div
-            ref="highlightRef"
-            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50"
-            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+            v-if="!bodyFocused"
+            @click="focusBody"
+            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
+            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
             v-html="bodyHighlighted"
-            aria-hidden="true"
           ></div>
           <textarea
+            v-else
             ref="textareaRef"
             v-model="form.body"
-            @input="syncScroll"
-            @scroll="syncScroll"
-            class="absolute inset-0 w-full h-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-transparent resize-none border-none outline-none"
-            style="color: transparent; caret-color: #1f2937; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+            @blur="onBodyBlur"
+            class="w-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
+            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
             spellcheck="false"
           ></textarea>
         </div>
@@ -253,21 +253,21 @@
                 </div>
               </div>
             </div>
-            <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+            <div class="border border-gray-300 rounded-lg overflow-hidden">
               <div
-                ref="webhookHighlightRef"
-                class="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50"
-                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+                v-if="!webhookBodyFocused"
+                @click="focusWebhookBody"
+                class="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
+                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
                 v-html="webhookBodyHighlighted"
-                aria-hidden="true"
               ></div>
               <textarea
+                v-else
                 ref="webhookTextareaRef"
                 v-model="form.webhook_body"
-                @input="syncWebhookScroll"
-                @scroll="syncWebhookScroll"
-                class="absolute inset-0 w-full h-full px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-transparent resize-none border-none outline-none"
-                style="color: transparent; caret-color: #1f2937; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+                @blur="onWebhookBodyBlur"
+                class="w-full px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
+                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
                 spellcheck="false"
                 placeholder='{"event":"lead.created","data":{"id":"{{$uuid}}","email":"{{body.email}}"}}'
               ></textarea>
@@ -318,12 +318,14 @@ const expanded = ref(false)
 const saving = ref(false)
 const showBulkConditions = ref(false)
 const bulkConditionsText = ref('')
-const highlightRef = ref(null)
 const textareaRef = ref(null)
 const showTagPanel = ref(false)
 const showWebhookTagPanel = ref(false)
-const webhookHighlightRef = ref(null)
 const webhookTextareaRef = ref(null)
+const bodyFocused = ref(false)
+const webhookBodyFocused = ref(false)
+let lastBodyCursor = -1
+let lastWebhookBodyCursor = -1
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
 const dirty = ref(false)
 const saved = ref(true)
@@ -433,21 +435,27 @@ const tagCategories = [
 ]
 
 function insertTag(tag) {
-  const ta = textareaRef.value
-  if (!ta) {
-    form.body = (form.body || '') + tag
-    return
-  }
-  ta.focus()
-  // Use execCommand to preserve native undo history (Ctrl+Z)
-  document.execCommand('insertText', false, tag)
-  // For path tags, move cursor before closing }} so user can type field name
-  if (tag.endsWith('.}}')) {
-    nextTick(() => {
-      const pos = ta.selectionStart - 2
-      ta.setSelectionRange(pos, pos)
-    })
-  }
+  bodyFocused.value = true
+  nextTick(() => {
+    const ta = textareaRef.value
+    if (!ta) {
+      form.body = (form.body || '') + tag
+      return
+    }
+    ta.focus()
+    // Restore cursor position saved on blur
+    if (lastBodyCursor >= 0) {
+      ta.setSelectionRange(lastBodyCursor, lastBodyCursor)
+      lastBodyCursor = -1
+    }
+    document.execCommand('insertText', false, tag)
+    if (tag.endsWith('.}}')) {
+      nextTick(() => {
+        const pos = ta.selectionStart - 2
+        ta.setSelectionRange(pos, pos)
+      })
+    }
+  })
 }
 
 function escapeHtml(str) {
@@ -496,11 +504,15 @@ const bodyHighlighted = computed(() => {
   return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
 })
 
-function syncScroll() {
-  if (highlightRef.value && textareaRef.value) {
-    highlightRef.value.scrollTop = textareaRef.value.scrollTop
-    highlightRef.value.scrollLeft = textareaRef.value.scrollLeft
-  }
+function onBodyBlur() {
+  const ta = textareaRef.value
+  if (ta) lastBodyCursor = ta.selectionStart
+  bodyFocused.value = false
+}
+
+function focusBody() {
+  bodyFocused.value = true
+  nextTick(() => { textareaRef.value?.focus() })
 }
 
 const webhookBodyHighlighted = computed(() => {
@@ -513,38 +525,53 @@ const webhookBodyHighlighted = computed(() => {
   return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
 })
 
-function syncWebhookScroll() {
-  if (webhookHighlightRef.value && webhookTextareaRef.value) {
-    webhookHighlightRef.value.scrollTop = webhookTextareaRef.value.scrollTop
-    webhookHighlightRef.value.scrollLeft = webhookTextareaRef.value.scrollLeft
-  }
+function onWebhookBodyBlur() {
+  const ta = webhookTextareaRef.value
+  if (ta) lastWebhookBodyCursor = ta.selectionStart
+  webhookBodyFocused.value = false
+}
+
+function focusWebhookBody() {
+  webhookBodyFocused.value = true
+  nextTick(() => { webhookTextareaRef.value?.focus() })
 }
 
 function insertWebhookTag(tag) {
-  const ta = webhookTextareaRef.value
-  if (!ta) {
-    form.webhook_body = (form.webhook_body || '') + tag
-    return
-  }
-  ta.focus()
-  document.execCommand('insertText', false, tag)
-  if (tag.endsWith('.}}')) {
-    nextTick(() => {
-      const pos = ta.selectionStart - 2
-      ta.setSelectionRange(pos, pos)
-    })
-  }
+  webhookBodyFocused.value = true
+  nextTick(() => {
+    const ta = webhookTextareaRef.value
+    if (!ta) {
+      form.webhook_body = (form.webhook_body || '') + tag
+      return
+    }
+    ta.focus()
+    // Restore cursor position saved on blur
+    if (lastWebhookBodyCursor >= 0) {
+      ta.setSelectionRange(lastWebhookBodyCursor, lastWebhookBodyCursor)
+      lastWebhookBodyCursor = -1
+    }
+    document.execCommand('insertText', false, tag)
+    if (tag.endsWith('.}}')) {
+      nextTick(() => {
+        const pos = ta.selectionStart - 2
+        ta.setSelectionRange(pos, pos)
+      })
+    }
+  })
 }
 
 function beautifyWebhookBody() {
   const text = (form.webhook_body || '').trim()
   if (!text) return
-  try {
-    const parsed = JSON.parse(text)
-    form.webhook_body = JSON.stringify(parsed, null, 2)
+
+  // Try JSON (with template support)
+  const result = beautifyWithTemplates(text)
+  if (result !== null) {
+    form.webhook_body = result
     notificationStore.showToast('JSON formatted', 'success')
     return
-  } catch (e) {}
+  }
+
   if (text.startsWith('<')) {
     let formatted = ''
     let indent = 0
@@ -653,17 +680,39 @@ function copyBody() {
     .catch(() => notificationStore.showToast('Failed to copy', 'error'))
 }
 
+// Replace {{...}} template tags with quoted placeholders so JSON.parse works,
+// then restore them after formatting.
+function beautifyWithTemplates(text) {
+  const templates = []
+  const safe = text.replace(/\{\{[^}]+\}\}/g, (match) => {
+    const idx = templates.length
+    templates.push(match)
+    return `"__TPL_${idx}__"`
+  })
+  try {
+    const parsed = JSON.parse(safe)
+    let formatted = JSON.stringify(parsed, null, 2)
+    // Restore template tags — remove the quotes we added around placeholders
+    templates.forEach((tpl, i) => {
+      formatted = formatted.replace(`"__TPL_${i}__"`, tpl)
+    })
+    return formatted
+  } catch (e) {
+    return null
+  }
+}
+
 function beautifyBody() {
   const text = form.body.trim()
   if (!text) return
 
-  // Try JSON
-  try {
-    const parsed = JSON.parse(text)
-    form.body = JSON.stringify(parsed, null, 2)
+  // Try JSON (with template support)
+  const result = beautifyWithTemplates(text)
+  if (result !== null) {
+    form.body = result
     notificationStore.showToast('JSON formatted', 'success')
     return
-  } catch (e) {}
+  }
 
   // Try XML - basic indent
   if (text.startsWith('<')) {

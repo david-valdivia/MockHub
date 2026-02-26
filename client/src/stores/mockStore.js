@@ -408,7 +408,7 @@ export const useMockStore = defineStore('mock', () => {
     loadServers, createServer, updateServer, deleteServer,
     testServerConnection, getServerEnvironments,
     pullFromServer, pushToServer, pushGroupToServer, pushRouteToServer, setActiveServer,
-    syncStatus, activeSyncServerId, loadSyncStatus, clearSyncStatus, copyBetweenServers, getSyncStatusFor,
+    syncStatus, activeSyncServerId, loadSyncStatus, clearSyncStatus, refreshSyncStatus, copyBetweenServers, getSyncStatusFor,
     selectRemoteServer, selectLocalServer
   }
 })
