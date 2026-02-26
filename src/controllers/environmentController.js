@@ -86,6 +86,67 @@ class EnvironmentController {
         }
     }
 
+    // Helper: copy full group/route/rule tree into a target environment
+    async _copyTreeInto(sourceEnvId, targetEnvId) {
+        const groups = await groupRepo.findByEnvironmentId(sourceEnvId);
+        for (const group of groups) {
+            const routes = await routeRepo.findByGroupId(group.id);
+            const newGroup = await groupRepo.create({
+                environment_id: targetEnvId,
+                name: group.name,
+                sort_order: group.sortOrder,
+                slug: group.slug,
+                path: group.path || ''
+            });
+            for (const route of routes) {
+                const rules = await ruleRepo.findByRouteId(route.id);
+                const newRoute = await routeRepo.create({
+                    group_id: newGroup.id,
+                    name: route.name || '',
+                    method: route.method,
+                    path_pattern: route.pathPattern,
+                    capture_requests: route.captureRequests,
+                    slug: route.slug
+                });
+                for (const rule of rules) {
+                    await ruleRepo.create({
+                        route_id: newRoute.id,
+                        name: rule.name || '',
+                        priority: rule.priority,
+                        conditions: rule.conditions || [],
+                        status_code: rule.statusCode,
+                        content_type: rule.contentType,
+                        body: rule.body,
+                        delay: rule.delay,
+                        webhook_url: rule.webhookUrl || null,
+                        webhook_method: rule.webhookMethod || 'POST',
+                        webhook_headers: rule.webhookHeaders || {},
+                        webhook_body: rule.webhookBody || null,
+                        webhook_delay: rule.webhookDelay || 0,
+                        webhook_content_type: rule.webhookContentType || 'application/json',
+                        webhook_enabled: rule.webhookEnabled !== undefined ? rule.webhookEnabled : true
+                    });
+                }
+            }
+        }
+    }
+
+    // Helper: delete all groups/routes/rules of an environment (but keep the env row)
+    async _deleteEnvChildren(envId) {
+        const groups = await groupRepo.findByEnvironmentId(envId);
+        for (const group of groups) {
+            const routes = await routeRepo.findByGroupId(group.id);
+            for (const route of routes) {
+                const rules = await ruleRepo.findByRouteId(route.id);
+                for (const rule of rules) {
+                    await ruleRepo.delete(rule.id);
+                }
+                await routeRepo.delete(route.id);
+            }
+            await groupRepo.delete(group.id);
+        }
+    }
+
     async copyToServer(req, res) {
         try {
             const envId = parseInt(req.params.id);
@@ -93,14 +154,43 @@ class EnvironmentController {
             if (!env) return res.status(404).json({ error: 'Environment not found' });
 
             const targetServerId = req.body.target_server_id === 'local' ? null : parseInt(req.body.target_server_id);
+            const conflictStrategy = req.body.conflict_strategy; // 'keep_both' | 'replace' | undefined
 
-            // Export the full tree
-            const groups = await groupRepo.findByEnvironmentId(env.id);
+            // Check if environment with same basePath already exists on target
+            const existingEnvs = await environmentRepo.findAll(targetServerId);
+            const conflictEnv = existingEnvs.find(e => e.basePath === env.basePath);
+
+            if (conflictEnv && !conflictStrategy) {
+                // No strategy chosen yet — return 409 so frontend can ask the user
+                return res.status(409).json({
+                    error: 'conflict',
+                    existing: conflictEnv.toJSON(),
+                    message: `Environment with path "${env.basePath || '/'}" already exists on the target server`
+                });
+            }
+
+            if (conflictEnv && conflictStrategy === 'replace') {
+                // Replace: delete existing children, update env metadata, copy new tree
+                await this._deleteEnvChildren(conflictEnv.id);
+                await environmentRepo.update(conflictEnv.id, {
+                    name: env.name,
+                    description: env.description,
+                    slug: env.slug
+                });
+                await this._copyTreeInto(env.id, conflictEnv.id);
+                const updated = await environmentRepo.findById(conflictEnv.id);
+                socketService.broadcastMessage('environmentUpdated', updated.toJSON());
+                return res.status(200).json(updated.toJSON());
+            }
+
+            // keep_both or no conflict: create new env (append suffix if needed)
             let basePath = env.basePath;
-            let counter = 1;
-            while (await environmentRepo.exists(basePath, targetServerId)) {
-                basePath = env.basePath + '-' + counter;
-                counter++;
+            if (conflictEnv) {
+                let counter = 1;
+                while (await environmentRepo.exists(basePath, targetServerId)) {
+                    basePath = env.basePath + '-' + counter;
+                    counter++;
+                }
             }
 
             const newEnv = await environmentRepo.create({
@@ -111,49 +201,7 @@ class EnvironmentController {
                 server_id: targetServerId
             });
 
-            for (const group of groups) {
-                const routes = await routeRepo.findByGroupId(group.id);
-                const newGroup = await groupRepo.create({
-                    environment_id: newEnv.id,
-                    name: group.name,
-                    sort_order: group.sortOrder,
-                    slug: group.slug,
-                    path: group.path || ''
-                });
-
-                for (const route of routes) {
-                    const rules = await ruleRepo.findByRouteId(route.id);
-                    const newRoute = await routeRepo.create({
-                        group_id: newGroup.id,
-                        name: route.name || '',
-                        method: route.method,
-                        path_pattern: route.pathPattern,
-                        capture_requests: route.captureRequests,
-                        slug: route.slug
-                    });
-
-                    for (const rule of rules) {
-                        await ruleRepo.create({
-                            route_id: newRoute.id,
-                            name: rule.name || '',
-                            priority: rule.priority,
-                            conditions: rule.conditions || [],
-                            status_code: rule.statusCode,
-                            content_type: rule.contentType,
-                            body: rule.body,
-                            delay: rule.delay,
-                            webhook_url: rule.webhookUrl || null,
-                            webhook_method: rule.webhookMethod || 'POST',
-                            webhook_headers: rule.webhookHeaders || {},
-                            webhook_body: rule.webhookBody || null,
-                            webhook_delay: rule.webhookDelay || 0,
-                            webhook_content_type: rule.webhookContentType || 'application/json',
-                            webhook_enabled: rule.webhookEnabled !== undefined ? rule.webhookEnabled : true
-                        });
-                    }
-                }
-            }
-
+            await this._copyTreeInto(env.id, newEnv.id);
             socketService.broadcastMessage('environmentCreated', newEnv.toJSON());
             res.status(201).json(newEnv.toJSON());
         } catch (error) {

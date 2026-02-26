@@ -30,6 +30,11 @@ apiClient.interceptors.response.use(
   (error) => {
     const message = error.response?.data?.error || error.message || 'An error occurred'
     console.error('API Error:', message, error)
+    // Preserve the original error with response data for conflict handling (409)
+    if (error.response) {
+      error.message = message
+      return Promise.reject(error)
+    }
     return Promise.reject(new Error(message))
   }
 )
@@ -61,13 +66,14 @@ export const webhookApi = {
   updateEnvironment: (id, data) => apiClient.put(`/v2/environments/${id}`, data),
   deleteEnvironment: (id) => apiClient.delete(`/v2/environments/${id}`),
   getEnvironmentTree: (id) => apiClient.get(`/v2/environments/${id}/tree`),
-  copyEnvironmentToServer: (id, targetServerId) => apiClient.post(`/v2/environments/${id}/copy`, { target_server_id: targetServerId }),
+  copyEnvironmentToServer: (id, targetServerId, conflictStrategy) => apiClient.post(`/v2/environments/${id}/copy`, { target_server_id: targetServerId, conflict_strategy: conflictStrategy }),
 
   // Groups
   getGroups: (envId) => apiClient.get(`/v2/environments/${envId}/groups`),
   createGroup: (envId, data) => apiClient.post(`/v2/environments/${envId}/groups`, data),
   updateGroup: (id, data) => apiClient.put(`/v2/groups/${id}`, data),
   deleteGroup: (id) => apiClient.delete(`/v2/groups/${id}`),
+  copyGroup: (id, data) => apiClient.post(`/v2/groups/${id}/copy`, data),
 
   // Routes
   getRoutes: (groupId) => apiClient.get(`/v2/groups/${groupId}/routes`),
@@ -75,6 +81,7 @@ export const webhookApi = {
   getRoute: (id) => apiClient.get(`/v2/routes/${id}`),
   updateRoute: (id, data) => apiClient.put(`/v2/routes/${id}`, data),
   deleteRoute: (id) => apiClient.delete(`/v2/routes/${id}`),
+  copyRoute: (id, data) => apiClient.post(`/v2/routes/${id}/copy`, data),
 
   // Rules
   getRules: (routeId) => apiClient.get(`/v2/routes/${routeId}/rules`),

@@ -33,6 +33,7 @@ router.get('/environments/:envId/groups', (req, res) => groupController.getByEnv
 router.post('/environments/:envId/groups', (req, res) => groupController.create(req, res));
 router.put('/groups/:id', (req, res) => groupController.update(req, res));
 router.delete('/groups/:id', (req, res) => groupController.delete(req, res));
+router.post('/groups/:id/copy', (req, res) => groupController.copyTo(req, res));
 
 // Routes
 router.get('/groups/:groupId/routes', (req, res) => routeController.getByGroup(req, res));
@@ -40,6 +41,7 @@ router.post('/groups/:groupId/routes', (req, res) => routeController.create(req,
 router.get('/routes/:id', (req, res) => routeController.getById(req, res));
 router.put('/routes/:id', (req, res) => routeController.update(req, res));
 router.delete('/routes/:id', (req, res) => routeController.delete(req, res));
+router.post('/routes/:id/copy', (req, res) => routeController.copyTo(req, res));
 
 // Rules
 router.get('/routes/:routeId/rules', (req, res) => ruleController.getByRoute(req, res));

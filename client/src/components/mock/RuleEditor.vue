@@ -132,8 +132,8 @@
         <div class="relative border border-gray-300 rounded-lg overflow-hidden">
           <div
             ref="highlightRef"
-            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-gray-50"
-            style="max-height: 500px; min-height: 80px;"
+            class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50"
+            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
             v-html="bodyHighlighted"
             aria-hidden="true"
           ></div>
@@ -142,8 +142,8 @@
             v-model="form.body"
             @input="syncScroll"
             @scroll="syncScroll"
-            class="absolute inset-0 w-full h-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-all overflow-auto bg-transparent resize-none border-none outline-none"
-            style="color: transparent; caret-color: #1f2937;"
+            class="absolute inset-0 w-full h-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-transparent resize-none border-none outline-none"
+            style="color: transparent; caret-color: #1f2937; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
             spellcheck="false"
           ></textarea>
         </div>
@@ -225,8 +225,53 @@
             </div>
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Callback Body <span class="text-gray-400 font-normal">(supports all template variables)</span></label>
-            <textarea v-model="form.webhook_body" rows="4" class="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-lg" placeholder='{"event":"lead.created","data":{"id":"{{$uuid}}","email":"{{body.email}}"}}'></textarea>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-medium text-gray-600">Callback Body <span class="text-gray-400 font-normal">(supports all template variables)</span></label>
+              <div class="flex items-center space-x-2">
+                <button @click="showWebhookTagPanel = !showWebhookTagPanel" class="text-xs flex items-center space-x-1" :class="showWebhookTagPanel ? 'text-rose-600' : 'text-rose-500 hover:text-rose-600'">
+                  <CodeBracketIcon class="h-3 w-3" />
+                  <span>Insert Tag</span>
+                </button>
+                <button @click="beautifyWebhookBody" class="text-xs text-blue-600 hover:text-blue-700">Beautify</button>
+              </div>
+            </div>
+            <!-- Webhook Tag Reference Panel -->
+            <div v-if="showWebhookTagPanel" class="mb-2 border border-rose-200 bg-rose-50 rounded-lg p-3 space-y-2.5">
+              <div v-for="cat in tagCategories" :key="'wh-' + cat.label">
+                <p class="text-xs font-semibold text-gray-600 mb-1">{{ cat.label }}</p>
+                <div class="flex flex-wrap gap-1">
+                  <button
+                    v-for="tag in cat.tags" :key="'wh-' + tag.value"
+                    @click="insertWebhookTag(tag.value)"
+                    @mouseenter="showTooltip($event, tag)"
+                    @mouseleave="hideTooltip"
+                    class="px-2 py-0.5 text-xs font-mono rounded border transition"
+                    :class="tag.color || 'bg-white border-rose-200 text-rose-700 hover:bg-rose-100'"
+                  >
+                    {{ tag.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="relative border border-gray-300 rounded-lg overflow-hidden">
+              <div
+                ref="webhookHighlightRef"
+                class="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50"
+                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+                v-html="webhookBodyHighlighted"
+                aria-hidden="true"
+              ></div>
+              <textarea
+                ref="webhookTextareaRef"
+                v-model="form.webhook_body"
+                @input="syncWebhookScroll"
+                @scroll="syncWebhookScroll"
+                class="absolute inset-0 w-full h-full px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-transparent resize-none border-none outline-none"
+                style="color: transparent; caret-color: #1f2937; word-break: break-word; tab-size: 2; line-height: 1.5; letter-spacing: normal;"
+                spellcheck="false"
+                placeholder='{"event":"lead.created","data":{"id":"{{$uuid}}","email":"{{body.email}}"}}'
+              ></textarea>
+            </div>
           </div>
           <p class="text-xs text-gray-400">Fires asynchronously after the main response. In Docker, use <code class="text-indigo-500">host.docker.internal</code> instead of <code class="text-indigo-500">localhost</code>.</p>
         </div>
@@ -276,6 +321,9 @@ const bulkConditionsText = ref('')
 const highlightRef = ref(null)
 const textareaRef = ref(null)
 const showTagPanel = ref(false)
+const showWebhookTagPanel = ref(false)
+const webhookHighlightRef = ref(null)
+const webhookTextareaRef = ref(null)
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
 const dirty = ref(false)
 const saved = ref(true)
@@ -453,6 +501,64 @@ function syncScroll() {
     highlightRef.value.scrollTop = textareaRef.value.scrollTop
     highlightRef.value.scrollLeft = textareaRef.value.scrollLeft
   }
+}
+
+const webhookBodyHighlighted = computed(() => {
+  const raw = form.webhook_body || ''
+  if (!raw.trim()) return '<span class="text-gray-400 italic">Empty callback body</span>'
+  const escaped = escapeHtml(raw)
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return highlightJson(escaped)
+  if (trimmed.startsWith('<')) return highlightXml(escaped)
+  return escaped.replace(/\{\{([^}]+)\}\}/g, (m, expr) => `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`)
+})
+
+function syncWebhookScroll() {
+  if (webhookHighlightRef.value && webhookTextareaRef.value) {
+    webhookHighlightRef.value.scrollTop = webhookTextareaRef.value.scrollTop
+    webhookHighlightRef.value.scrollLeft = webhookTextareaRef.value.scrollLeft
+  }
+}
+
+function insertWebhookTag(tag) {
+  const ta = webhookTextareaRef.value
+  if (!ta) {
+    form.webhook_body = (form.webhook_body || '') + tag
+    return
+  }
+  ta.focus()
+  document.execCommand('insertText', false, tag)
+  if (tag.endsWith('.}}')) {
+    nextTick(() => {
+      const pos = ta.selectionStart - 2
+      ta.setSelectionRange(pos, pos)
+    })
+  }
+}
+
+function beautifyWebhookBody() {
+  const text = (form.webhook_body || '').trim()
+  if (!text) return
+  try {
+    const parsed = JSON.parse(text)
+    form.webhook_body = JSON.stringify(parsed, null, 2)
+    notificationStore.showToast('JSON formatted', 'success')
+    return
+  } catch (e) {}
+  if (text.startsWith('<')) {
+    let formatted = ''
+    let indent = 0
+    const tags = text.replace(/>\s*</g, '><').split(/(<[^>]+>)/).filter(Boolean)
+    for (const tag of tags) {
+      if (tag.match(/^<\/\w/)) indent--
+      formatted += '  '.repeat(Math.max(0, indent)) + tag.trim() + '\n'
+      if (tag.match(/^<\w[^/]*[^/]>$/)) indent++
+    }
+    form.webhook_body = formatted.trim()
+    notificationStore.showToast('XML formatted', 'success')
+    return
+  }
+  notificationStore.showToast('Could not detect format', 'info')
 }
 
 const showWebhook = ref(false)

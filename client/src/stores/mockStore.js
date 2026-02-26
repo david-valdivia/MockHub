@@ -92,9 +92,7 @@ export const useMockStore = defineStore('mock', () => {
 
   async function createGroup(envId, data) {
     const response = await webhookApi.createGroup(envId, data)
-    if (activeEnvironmentId.value === envId) {
-      await selectEnvironment(envId)
-    }
+    await selectEnvironment(envId)
     refreshSyncStatus()
     return response.data
   }
@@ -200,8 +198,20 @@ export const useMockStore = defineStore('mock', () => {
     routeLogs.value = []
   }
 
-  async function copyEnvironmentToServer(envId, targetServerId) {
-    const response = await webhookApi.copyEnvironmentToServer(envId, targetServerId)
+  async function copyEnvironmentToServer(envId, targetServerId, conflictStrategy) {
+    const response = await webhookApi.copyEnvironmentToServer(envId, targetServerId, conflictStrategy)
+    await loadEnvironments()
+    return response.data
+  }
+
+  async function copyGroupTo(groupId, targetEnvId, conflictStrategy) {
+    const response = await webhookApi.copyGroup(groupId, { target_environment_id: targetEnvId, conflict_strategy: conflictStrategy })
+    await loadEnvironments()
+    return response.data
+  }
+
+  async function copyRouteTo(routeId, targetGroupId, conflictStrategy) {
+    const response = await webhookApi.copyRoute(routeId, { target_group_id: targetGroupId, conflict_strategy: conflictStrategy })
     await loadEnvironments()
     return response.data
   }
@@ -394,7 +404,7 @@ export const useMockStore = defineStore('mock', () => {
     createRoute, selectRoute, updateRoute, deleteRoute,
     createRule, updateRule, deleteRule,
     loadRouteLogs, clearRouteLogs,
-    exportEnvironment, importEnvironment, copyEnvironmentToServer,
+    exportEnvironment, importEnvironment, copyEnvironmentToServer, copyGroupTo, copyRouteTo,
     loadServers, createServer, updateServer, deleteServer,
     testServerConnection, getServerEnvironments,
     pullFromServer, pushToServer, pushGroupToServer, pushRouteToServer, setActiveServer,

@@ -1,5 +1,11 @@
 <template>
-  <div class="w-72 bg-white border-r border-gray-200 h-screen flex flex-col overflow-hidden">
+  <div class="bg-white border-r border-gray-200 h-screen flex flex-col overflow-hidden relative" :style="{ width: sidebarWidth + 'px', minWidth: '200px', maxWidth: '400px' }">
+    <!-- Resize handle -->
+    <div
+      class="absolute top-0 right-0 w-1.5 h-full cursor-col-resize z-20 hover:bg-blue-400/40 transition-colors"
+      :class="{ 'bg-blue-400/40': resizing }"
+      @mousedown.prevent="startResize"
+    ></div>
     <div class="flex-shrink-0 px-4 py-3 border-b border-gray-100">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Environments</h2>
       <p v-if="activeSyncServerName" class="text-[10px] text-blue-500 mt-0.5 truncate">
@@ -68,7 +74,7 @@
                   <button @click.stop="addRoute(group)" class="p-0.5 hover:bg-gray-200 rounded" title="Add route">
                     <PlusIcon class="h-3 w-3" />
                   </button>
-                  <button v-if="hasCopyTargets" @click.stop="copyGroupTo(group)" class="p-0.5 hover:bg-blue-100 hover:text-blue-600 rounded" title="Copy To...">
+                  <button v-if="hasAnyCopyTarget" @click.stop="copyGroupTo(group)" class="p-0.5 hover:bg-blue-100 hover:text-blue-600 rounded" title="Copy To...">
                     <CloudArrowUpIcon class="h-3 w-3" />
                   </button>
                   <button @click.stop="confirmDeleteGroup(group)" class="p-0.5 hover:bg-red-100 hover:text-red-600 rounded" title="Delete">
@@ -167,7 +173,7 @@
           <DocumentDuplicateIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Duplicate</span>
         </button>
-        <button v-if="hasCopyTargets" @click="ctxCopyRouteTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+        <button v-if="hasAnyCopyTarget" @click="ctxCopyRouteTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Copy To...</span>
         </button>
@@ -205,7 +211,7 @@
           <PlusIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Add Route</span>
         </button>
-        <button v-if="hasCopyTargets" @click="groupCtxCopyTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+        <button v-if="hasAnyCopyTarget" @click="groupCtxCopyTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Copy To...</span>
         </button>
@@ -262,7 +268,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMockStore } from '@/stores/mockStore'
 import { webhookApi } from '@/services/api'
@@ -280,6 +286,28 @@ import Swal from 'sweetalert2'
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const router = useRouter()
+
+// Resizable sidebar
+const sidebarWidth = ref(parseInt(localStorage.getItem('mockhub_sidebar_width') || '288'))
+const resizing = ref(false)
+
+function startResize(e) {
+  resizing.value = true
+  const startX = e.clientX
+  const startWidth = sidebarWidth.value
+  function onMouseMove(ev) {
+    const newWidth = Math.min(400, Math.max(200, startWidth + (ev.clientX - startX)))
+    sidebarWidth.value = newWidth
+  }
+  function onMouseUp() {
+    resizing.value = false
+    localStorage.setItem('mockhub_sidebar_width', String(sidebarWidth.value))
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+  }
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
 
 const expandedEnvs = ref(new Set())
 const expandedGroups = ref(new Set())
@@ -304,6 +332,10 @@ const hasCopyTargets = computed(() => {
   if (mockStore.activeSyncServerId) return true // can always copy to Local
   return mockStore.servers.length > 0 // on Local, need at least 1 server
 })
+// Groups and routes can always be copied (even within same server to another env/group)
+const hasAnyCopyTarget = computed(() => {
+  return mockStore.environments.length > 0
+})
 
 // Sync status dots: show when viewing a GitHub server
 function syncDot(entityType, entityId) {
@@ -320,6 +352,16 @@ function syncTitle(entityType, entityId) {
   if (status === 'synced') return 'Synced with GitHub'
   if (status === 'modified') return 'Modified since last push'
   return 'Not pushed to GitHub'
+}
+
+async function refreshEnvTree(envId) {
+  try {
+    const res = await webhookApi.getEnvironmentTree(envId)
+    envTrees[envId] = res.data
+    for (const g of (res.data.groups || [])) {
+      expandedGroups.value.add(g.id)
+    }
+  } catch (_) {}
 }
 
 async function toggleEnvironment(env) {
@@ -485,21 +527,219 @@ async function copyEnvTo(env) {
   })
   if (!isConfirmed) return
   try {
-    await mockStore.copyEnvironmentToServer(env.id, target.id)
+    const newEnv = await mockStore.copyEnvironmentToServer(env.id, target.id)
+    if (newEnv?.id) await refreshEnvTree(newEnv.id)
     notificationStore.showToast(`Copied "${env.name}" to ${target.name}`, 'success')
   } catch (error) {
-    notificationStore.showToast(error.message || 'Copy failed', 'error')
+    // Handle conflict: environment already exists on target
+    if (error.response && error.response.status === 409 && error.response.data?.error === 'conflict') {
+      const existing = error.response.data.existing
+      const { value: strategy } = await Swal.fire({
+        title: 'Environment already exists',
+        html: `<p class="text-sm text-gray-600 mb-2">"<strong>${existing.name}</strong>" with path <code>${existing.basePath || '/'}</code> already exists on <strong>${target.name}</strong>.</p>`,
+        icon: 'warning',
+        input: 'select',
+        inputOptions: {
+          'keep_both': 'Keep both (create copy with modified path)',
+          'replace': 'Replace (overwrite existing)'
+        },
+        inputValue: 'keep_both',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Continue',
+        customClass: { input: 'swal-select-bordered' }
+      })
+      if (!strategy) return
+      try {
+        const retryEnv = await mockStore.copyEnvironmentToServer(env.id, target.id, strategy)
+        const retryId = strategy === 'replace' ? existing.id : retryEnv?.id
+        if (retryId) await refreshEnvTree(retryId)
+        const msg = strategy === 'replace'
+          ? `Replaced "${env.name}" on ${target.name}`
+          : `Copied "${env.name}" to ${target.name} (kept both)`
+        notificationStore.showToast(msg, 'success')
+      } catch (retryError) {
+        notificationStore.showToast(retryError.message || 'Copy failed', 'error')
+      }
+    } else {
+      notificationStore.showToast(error.message || 'Copy failed', 'error')
+    }
   }
+}
+
+// --- Pick target server (includes current for group/route copies) ---
+async function pickTargetServerForCopy() {
+  const currentServerId = mockStore.activeSyncServerId
+  const targets = []
+  // Include current server (for copying within same server)
+  targets.push({ id: currentServerId === null ? 'local' : currentServerId, name: currentServerId === null ? 'Local' : (mockStore.servers.find(s => s.id === currentServerId)?.name || 'Current') })
+  // Add other servers
+  if (currentServerId !== null) {
+    targets.push({ id: 'local', name: 'Local' })
+  }
+  for (const s of mockStore.servers) {
+    if (s.id !== currentServerId) {
+      targets.push({ id: s.id, name: s.name })
+    }
+  }
+  if (targets.length === 1) return targets[0]
+  const options = {}
+  targets.forEach(t => { options[t.id] = t.name })
+  const { value } = await Swal.fire({
+    title: 'Copy To...',
+    text: 'Select target server',
+    input: 'select',
+    inputOptions: options,
+    showCancelButton: true,
+    confirmButtonText: 'Select',
+    inputValidator: (val) => { if (!val) return 'Please select a server' },
+    customClass: { input: 'swal-select-bordered' }
+  })
+  if (!value) return null
+  return targets.find(t => String(t.id) === String(value))
+}
+
+// --- Pick target environment on a server ---
+async function pickTargetEnvironment(serverId, excludeEnvId) {
+  const targetServerId = serverId === 'local' ? 'local' : serverId
+  const res = await webhookApi.getEnvironments({ server_id: targetServerId })
+  let envs = res.data
+  if (excludeEnvId) envs = envs.filter(e => e.id !== excludeEnvId)
+  if (envs.length === 0) {
+    notificationStore.showToast('No environments available on target server', 'info')
+    return null
+  }
+  if (envs.length === 1) return envs[0]
+  const options = {}
+  envs.forEach(e => { options[e.id] = e.name + (e.basePath ? ' (' + e.basePath + ')' : '') })
+  const { value } = await Swal.fire({
+    title: 'Select target environment',
+    input: 'select',
+    inputOptions: options,
+    showCancelButton: true,
+    confirmButtonText: 'Select',
+    inputValidator: val => { if (!val) return 'Please select an environment' },
+    customClass: { input: 'swal-select-bordered' }
+  })
+  if (!value) return null
+  return envs.find(e => String(e.id) === String(value))
+}
+
+// --- Pick target group in an environment ---
+async function pickTargetGroup(envId, excludeGroupId) {
+  const res = await webhookApi.getGroups(envId)
+  let groups = res.data
+  if (excludeGroupId) groups = groups.filter(g => g.id !== excludeGroupId)
+  if (groups.length === 0) {
+    notificationStore.showToast('No groups available in target environment', 'info')
+    return null
+  }
+  if (groups.length === 1) return groups[0]
+  const options = {}
+  groups.forEach(g => { options[g.id] = g.name + (g.path ? ' (' + g.path + ')' : '') })
+  const { value } = await Swal.fire({
+    title: 'Select target group',
+    input: 'select',
+    inputOptions: options,
+    showCancelButton: true,
+    confirmButtonText: 'Select',
+    inputValidator: val => { if (!val) return 'Please select a group' },
+    customClass: { input: 'swal-select-bordered' }
+  })
+  if (!value) return null
+  return groups.find(g => String(g.id) === String(value))
 }
 
 // --- Copy To... for groups ---
 async function copyGroupTo(group) {
-  notificationStore.showToast('Use Copy To... on the environment to copy full environments between servers', 'info')
+  const target = await pickTargetServerForCopy()
+  if (!target) return
+  const targetEnv = await pickTargetEnvironment(target.id)
+  if (!targetEnv) return
+  try {
+    await mockStore.copyGroupTo(group.id, targetEnv.id)
+    await refreshEnvTree(targetEnv.id)
+    notificationStore.showToast(`Copied group "${group.name}" to "${targetEnv.name}"`, 'success')
+  } catch (error) {
+    if (error.response?.status === 409 && error.response.data?.error === 'conflict') {
+      const existing = error.response.data.existing
+      const { value: strategy } = await Swal.fire({
+        title: 'Group already exists',
+        html: `<p class="text-sm text-gray-600">"<strong>${existing.name}</strong>" already exists in "<strong>${targetEnv.name}</strong>".</p>`,
+        icon: 'warning',
+        input: 'select',
+        inputOptions: {
+          'keep_both': 'Keep both (create copy with different name)',
+          'replace': 'Replace (overwrite existing group and routes)'
+        },
+        inputValue: 'keep_both',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Continue',
+        customClass: { input: 'swal-select-bordered' }
+      })
+      if (!strategy) return
+      try {
+        await mockStore.copyGroupTo(group.id, targetEnv.id, strategy)
+        await refreshEnvTree(targetEnv.id)
+        const msg = strategy === 'replace'
+          ? `Replaced group "${group.name}" in "${targetEnv.name}"`
+          : `Copied group "${group.name}" to "${targetEnv.name}" (kept both)`
+        notificationStore.showToast(msg, 'success')
+      } catch (retryError) {
+        notificationStore.showToast(retryError.message || 'Copy failed', 'error')
+      }
+    } else {
+      notificationStore.showToast(error.message || 'Copy failed', 'error')
+    }
+  }
 }
 
 // --- Copy To... for routes ---
 async function copyRouteTo(route) {
-  notificationStore.showToast('Use Copy To... on the environment to copy full environments between servers', 'info')
+  const target = await pickTargetServerForCopy()
+  if (!target) return
+  const targetEnv = await pickTargetEnvironment(target.id)
+  if (!targetEnv) return
+  const targetGroup = await pickTargetGroup(targetEnv.id)
+  if (!targetGroup) return
+  try {
+    await mockStore.copyRouteTo(route.id, targetGroup.id)
+    await refreshEnvTree(targetEnv.id)
+    notificationStore.showToast(`Copied route to "${targetGroup.name}"`, 'success')
+  } catch (error) {
+    if (error.response?.status === 409 && error.response.data?.error === 'conflict') {
+      const existing = error.response.data.existing
+      const { value: strategy } = await Swal.fire({
+        title: 'Route already exists',
+        html: `<p class="text-sm text-gray-600">"<strong>${existing.method} ${existing.pathPattern || '/'}</strong>" already exists in group "<strong>${targetGroup.name}</strong>".</p>`,
+        icon: 'warning',
+        input: 'select',
+        inputOptions: {
+          'keep_both': 'Keep both (create copy with modified path)',
+          'replace': 'Replace (overwrite existing route and rules)'
+        },
+        inputValue: 'keep_both',
+        showCancelButton: true,
+        cancelButtonText: 'Cancel',
+        confirmButtonText: 'Continue',
+        customClass: { input: 'swal-select-bordered' }
+      })
+      if (!strategy) return
+      try {
+        await mockStore.copyRouteTo(route.id, targetGroup.id, strategy)
+        await refreshEnvTree(targetEnv.id)
+        const msg = strategy === 'replace'
+          ? `Replaced route in "${targetGroup.name}"`
+          : `Copied route to "${targetGroup.name}" (kept both)`
+        notificationStore.showToast(msg, 'success')
+      } catch (retryError) {
+        notificationStore.showToast(retryError.message || 'Copy failed', 'error')
+      }
+    } else {
+      notificationStore.showToast(error.message || 'Copy failed', 'error')
+    }
+  }
 }
 
 // --- Route Context Menu ---
