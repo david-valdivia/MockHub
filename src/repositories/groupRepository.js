@@ -19,9 +19,10 @@ class GroupRepository {
 
     async create(data) {
         const db = database.getConnection();
+        const slug = data.slug || this._slugify(data.name);
         const result = await db.run(
-            'INSERT INTO groups (environment_id, name, sort_order) VALUES (?, ?, ?)',
-            [data.environment_id, data.name, data.sort_order || 0]
+            'INSERT INTO groups (environment_id, name, sort_order, slug) VALUES (?, ?, ?, ?)',
+            [data.environment_id, data.name, data.sort_order || 0, slug]
         );
         return this.findById(result.lastID);
     }
@@ -32,10 +33,15 @@ class GroupRepository {
         const values = [];
         if (data.name !== undefined) { setClauses.push('name = ?'); values.push(data.name); }
         if (data.sort_order !== undefined) { setClauses.push('sort_order = ?'); values.push(data.sort_order); }
+        if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
         if (setClauses.length === 0) throw new Error('No fields to update');
         values.push(id);
         await db.run(`UPDATE groups SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);
+    }
+
+    _slugify(name) {
+        return (name || '').toLowerCase().replace(/^\/+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled';
     }
 
     async delete(id) {

@@ -119,11 +119,27 @@ class Database {
             );
         `);
 
+        // Servers table for GitHub sync
+        await this.db.exec(`
+            CREATE TABLE IF NOT EXISTS servers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'github',
+                repo_url TEXT NOT NULL,
+                token TEXT NOT NULL,
+                branch TEXT DEFAULT 'main',
+                is_active INTEGER DEFAULT 0,
+                last_sync TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
         // Migrate existing tables to add new columns
         await this.migrateResponsesTable();
         await this.migrateRequestsTable();
         await this.migrateRulesTable();
         await this.migrateRequestLogsTable();
+        await this.migrateSlugColumns();
     }
 
     async migrateResponsesTable() {
@@ -228,6 +244,58 @@ class Database {
         } catch (error) {
             console.error('Request logs migration error:', error);
         }
+    }
+
+    async migrateSlugColumns() {
+        try {
+            // Add slug to environments
+            const envInfo = await this.db.all('PRAGMA table_info(environments)');
+            if (!envInfo.find(c => c.name === 'slug')) {
+                console.log('Adding slug column to environments table');
+                await this.db.exec("ALTER TABLE environments ADD COLUMN slug TEXT DEFAULT ''");
+                // Auto-populate slugs for existing records
+                const envs = await this.db.all('SELECT id, name FROM environments');
+                for (const env of envs) {
+                    const slug = this.generateSlug(env.name);
+                    await this.db.run('UPDATE environments SET slug = ? WHERE id = ?', [slug, env.id]);
+                }
+            }
+
+            // Add slug to groups
+            const groupInfo = await this.db.all('PRAGMA table_info(groups)');
+            if (!groupInfo.find(c => c.name === 'slug')) {
+                console.log('Adding slug column to groups table');
+                await this.db.exec("ALTER TABLE groups ADD COLUMN slug TEXT DEFAULT ''");
+                const groups = await this.db.all('SELECT id, name FROM groups');
+                for (const group of groups) {
+                    const slug = this.generateSlug(group.name);
+                    await this.db.run('UPDATE groups SET slug = ? WHERE id = ?', [slug, group.id]);
+                }
+            }
+
+            // Add slug to routes
+            const routeInfo = await this.db.all('PRAGMA table_info(routes)');
+            if (!routeInfo.find(c => c.name === 'slug')) {
+                console.log('Adding slug column to routes table');
+                await this.db.exec("ALTER TABLE routes ADD COLUMN slug TEXT DEFAULT ''");
+                const routes = await this.db.all('SELECT id, path_pattern FROM routes');
+                for (const route of routes) {
+                    const slug = this.generateSlug(route.path_pattern);
+                    await this.db.run('UPDATE routes SET slug = ? WHERE id = ?', [slug, route.id]);
+                }
+            }
+        } catch (error) {
+            console.error('Slug migration error:', error);
+        }
+    }
+
+    generateSlug(name) {
+        return name
+            .toLowerCase()
+            .replace(/^\/+/, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            || 'untitled';
     }
 
     getConnection() {

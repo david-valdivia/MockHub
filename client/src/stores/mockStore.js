@@ -10,6 +10,8 @@ export const useMockStore = defineStore('mock', () => {
   const activeRoute = ref(null) // { ...route, rules: [] }
   const routeLogs = ref([])
   const loading = ref(false)
+  const servers = ref([])
+  const activeServer = ref(null)
 
   const activeEnvironmentId = computed(() => activeEnvironment.value?.id || null)
   const activeRouteId = computed(() => activeRoute.value?.id || null)
@@ -170,6 +172,62 @@ export const useMockStore = defineStore('mock', () => {
     return response.data
   }
 
+  // Server methods
+  async function loadServers() {
+    try {
+      const response = await webhookApi.getServers()
+      servers.value = response.data
+    } catch (error) {
+      console.error('Failed to load servers:', error)
+    }
+  }
+
+  async function createServer(data) {
+    const response = await webhookApi.createServer(data)
+    await loadServers()
+    return response.data
+  }
+
+  async function updateServer(id, data) {
+    const response = await webhookApi.updateServer(id, data)
+    await loadServers()
+    return response.data
+  }
+
+  async function deleteServer(id) {
+    await webhookApi.deleteServer(id)
+    if (activeServer.value?.id === id) {
+      activeServer.value = null
+    }
+    await loadServers()
+  }
+
+  async function testServerConnection(id) {
+    const response = await webhookApi.testServerConnection(id)
+    return response.data
+  }
+
+  async function getServerEnvironments(id) {
+    const response = await webhookApi.getServerEnvironments(id)
+    return response.data
+  }
+
+  async function pullFromServer(serverId, envSlug) {
+    const response = await webhookApi.pullFromServer(serverId, { envSlug })
+    await loadEnvironments()
+    return response.data
+  }
+
+  async function pushToServer(serverId, envId) {
+    const response = await webhookApi.pushToServer(serverId, { envId })
+    await loadServers()
+    return response.data
+  }
+
+  function setActiveServer(server) {
+    activeServer.value = server
+  }
+
   function setupSocketListeners() {
     const notificationStore = useNotificationStore()
 
@@ -203,11 +261,13 @@ export const useMockStore = defineStore('mock', () => {
 
   async function initialize() {
     await loadEnvironments()
+    await loadServers()
     setupSocketListeners()
   }
 
   return {
     environments, activeEnvironment, activeRoute, routeLogs, loading,
+    servers, activeServer,
     activeEnvironmentId, activeRouteId,
     initialize, loadEnvironments, selectEnvironment,
     createEnvironment, updateEnvironment, deleteEnvironment,
@@ -215,6 +275,9 @@ export const useMockStore = defineStore('mock', () => {
     createRoute, selectRoute, updateRoute, deleteRoute,
     createRule, updateRule, deleteRule,
     loadRouteLogs, clearRouteLogs,
-    exportEnvironment, importEnvironment
+    exportEnvironment, importEnvironment,
+    loadServers, createServer, updateServer, deleteServer,
+    testServerConnection, getServerEnvironments,
+    pullFromServer, pushToServer, setActiveServer
   }
 })

@@ -30,9 +30,10 @@ class RouteRepository {
 
     async create(data) {
         const db = database.getConnection();
+        const slug = data.slug || this._slugify(data.path_pattern);
         const result = await db.run(
-            'INSERT INTO routes (group_id, method, path_pattern, capture_requests) VALUES (?, ?, ?, ?)',
-            [data.group_id, (data.method || 'ALL').toUpperCase(), data.path_pattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1]
+            'INSERT INTO routes (group_id, method, path_pattern, capture_requests, slug) VALUES (?, ?, ?, ?, ?)',
+            [data.group_id, (data.method || 'ALL').toUpperCase(), data.path_pattern, data.capture_requests !== undefined ? (data.capture_requests ? 1 : 0) : 1, slug]
         );
         return this.findById(result.lastID);
     }
@@ -45,10 +46,15 @@ class RouteRepository {
         if (data.path_pattern !== undefined) { setClauses.push('path_pattern = ?'); values.push(data.path_pattern); }
         if (data.capture_requests !== undefined) { setClauses.push('capture_requests = ?'); values.push(data.capture_requests ? 1 : 0); }
         if (data.group_id !== undefined) { setClauses.push('group_id = ?'); values.push(data.group_id); }
+        if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
         if (setClauses.length === 0) throw new Error('No fields to update');
         values.push(id);
         await db.run(`UPDATE routes SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);
+    }
+
+    _slugify(name) {
+        return (name || '').toLowerCase().replace(/^\/+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled';
     }
 
     async delete(id) {

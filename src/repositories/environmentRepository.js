@@ -28,9 +28,10 @@ class EnvironmentRepository {
 
     async create(data) {
         const db = database.getConnection();
+        const slug = data.slug || this._slugify(data.name);
         const result = await db.run(
-            'INSERT INTO environments (name, base_path, description, is_active) VALUES (?, ?, ?, ?)',
-            [data.name, data.base_path, data.description || '', data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1]
+            'INSERT INTO environments (name, base_path, description, is_active, slug) VALUES (?, ?, ?, ?, ?)',
+            [data.name, data.base_path, data.description || '', data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1, slug]
         );
         return this.findById(result.lastID);
     }
@@ -43,10 +44,15 @@ class EnvironmentRepository {
         if (data.base_path !== undefined) { setClauses.push('base_path = ?'); values.push(data.base_path); }
         if (data.description !== undefined) { setClauses.push('description = ?'); values.push(data.description); }
         if (data.is_active !== undefined) { setClauses.push('is_active = ?'); values.push(data.is_active ? 1 : 0); }
+        if (data.slug !== undefined) { setClauses.push('slug = ?'); values.push(data.slug); }
         if (setClauses.length === 0) throw new Error('No fields to update');
         values.push(id);
         await db.run(`UPDATE environments SET ${setClauses.join(', ')} WHERE id = ?`, values);
         return this.findById(id);
+    }
+
+    _slugify(name) {
+        return (name || '').toLowerCase().replace(/^\/+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'untitled';
     }
 
     async delete(id) {

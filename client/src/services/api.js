@@ -91,6 +91,16 @@ export const webhookApi = {
   // Export/Import
   exportEnvironment: (id) => apiClient.get(`/v2/environments/${id}/export`),
   importEnvironment: (data) => apiClient.post('/v2/environments/import', data),
+
+  // Servers
+  getServers: () => apiClient.get('/v2/servers'),
+  createServer: (data) => apiClient.post('/v2/servers', data),
+  updateServer: (id, data) => apiClient.put(`/v2/servers/${id}`, data),
+  deleteServer: (id) => apiClient.delete(`/v2/servers/${id}`),
+  testServerConnection: (id) => apiClient.post(`/v2/servers/${id}/test`),
+  getServerEnvironments: (id) => apiClient.get(`/v2/servers/${id}/environments`),
+  pullFromServer: (id, data) => apiClient.post(`/v2/servers/${id}/pull`, data, { timeout: 60000 }),
+  pushToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push`, data, { timeout: 60000 }),
 }
 
 export default apiClient

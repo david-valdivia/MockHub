@@ -12,6 +12,11 @@
           <input v-model="form.base_path" required class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono" placeholder="e.g. /stripe" />
         </div>
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+          <input v-model="form.slug" class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm" :placeholder="autoSlug" />
+          <p class="text-xs text-gray-400 mt-1">URL-safe name for GitHub sync. Auto-generated from name if empty.</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <textarea v-model="form.description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Optional description"></textarea>
         </div>
@@ -27,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 
@@ -35,7 +40,11 @@ const emit = defineEmits(['close'])
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const saving = ref(false)
-const form = reactive({ name: '', base_path: '', description: '' })
+const form = reactive({ name: '', base_path: '', description: '', slug: '' })
+
+const autoSlug = computed(() => {
+  return form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'my-environment'
+})
 
 async function submit() {
   try {

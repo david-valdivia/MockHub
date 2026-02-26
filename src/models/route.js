@@ -4,6 +4,7 @@ class Route {
         this.groupId = data.group_id;
         this.method = data.method || 'ALL';
         this.pathPattern = data.path_pattern;
+        this.slug = data.slug || '';
         this.captureRequests = data.capture_requests !== undefined ? Boolean(data.capture_requests) : true;
         this.createdAt = data.created_at;
     }
@@ -18,6 +19,7 @@ class Route {
             groupId: this.groupId,
             method: this.method,
             pathPattern: this.pathPattern,
+            slug: this.slug,
             captureRequests: this.captureRequests,
             createdAt: this.createdAt
         };

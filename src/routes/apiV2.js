@@ -5,6 +5,7 @@ const routeController = require('../controllers/routeController');
 const ruleController = require('../controllers/ruleController');
 const requestLogController = require('../controllers/requestLogController');
 const exportImportController = require('../controllers/exportImportController');
+const serverController = require('../controllers/serverController');
 
 const router = express.Router();
 
@@ -45,5 +46,15 @@ router.delete('/logs/:id', (req, res) => requestLogController.delete(req, res));
 // Export/Import
 router.get('/environments/:id/export', (req, res) => exportImportController.exportEnvironment(req, res));
 router.post('/environments/import', (req, res) => exportImportController.importEnvironment(req, res));
+
+// Servers
+router.get('/servers', (req, res) => serverController.getAll(req, res));
+router.post('/servers', (req, res) => serverController.create(req, res));
+router.put('/servers/:id', (req, res) => serverController.update(req, res));
+router.delete('/servers/:id', (req, res) => serverController.delete(req, res));
+router.post('/servers/:id/test', (req, res) => serverController.testConnection(req, res));
+router.get('/servers/:id/environments', (req, res) => serverController.listRemoteEnvironments(req, res));
+router.post('/servers/:id/pull', (req, res) => serverController.pull(req, res));
+router.post('/servers/:id/push', (req, res) => serverController.push(req, res));
 
 module.exports = router;

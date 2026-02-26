@@ -90,6 +90,9 @@
       </div>
     </div>
 
+    <!-- Server Sync Panel -->
+    <ServerSyncPanel />
+
     <!-- Documentation -->
     <div class="flex-shrink-0 border-t border-gray-200">
       <button
@@ -167,6 +170,7 @@ import {
 } from '@heroicons/vue/24/outline'
 import CreateGroupModal from './CreateGroupModal.vue'
 import CreateRouteModal from './CreateRouteModal.vue'
+import ServerSyncPanel from './ServerSyncPanel.vue'
 import Swal from 'sweetalert2'
 
 const mockStore = useMockStore()

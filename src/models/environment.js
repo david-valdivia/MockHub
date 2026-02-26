@@ -4,6 +4,7 @@ class Environment {
         this.name = data.name;
         this.basePath = data.base_path;
         this.description = data.description || '';
+        this.slug = data.slug || '';
         this.isActive = data.is_active !== undefined ? Boolean(data.is_active) : true;
         this.createdAt = data.created_at;
     }
@@ -18,6 +19,7 @@ class Environment {
             name: this.name,
             basePath: this.basePath,
             description: this.description,
+            slug: this.slug,
             isActive: this.isActive,
             createdAt: this.createdAt
         };
