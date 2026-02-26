@@ -123,7 +123,7 @@ client/
 │   │   ├── RuleEditor.vue          # Rule card: focus-toggle body editors, tag insert at cursor, template-aware beautify
 │   │   ├── ConditionBuilder.vue    # AND/OR conditions with field autocomplete
 │   │   ├── RequestLogPanel.vue     # Log viewer with webhook callback results
-│   │   ├── SyntaxHighlighter.vue   # JSON/XML colorization
+│   │   ├── SyntaxHighlighter.vue   # JSON/XML colorization, click-to-copy with dot-path (array-aware)
 │   │   ├── ServerSyncPanel.vue     # GitHub server selector + sync status
 │   │   ├── CreateEnvironmentModal.vue
 │   │   ├── CreateGroupModal.vue

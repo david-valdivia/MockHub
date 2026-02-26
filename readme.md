@@ -38,7 +38,8 @@ A configurable API mocker with dynamic routes, conditional rules, template-power
 - **Syntax-highlighted Body Editor** — JSON/XML/template highlighting for response and webhook bodies (focus-toggle: highlighted preview when idle, plain textarea when editing)
 - **Insert Tag Panel** — Click to insert template variables at cursor position from categorized panels (both response and webhook body)
 - **Beautify** — Auto-format JSON/XML in response and webhook body editors, supports `{{template}}` tags as unquoted values
-- **XML Support** — Parse and respond with XML bodies
+- **XML Support** — Parse and respond with XML bodies, formatted display in logs
+- **Click-to-Copy Paths** — Click any XML tag to copy its dot-path (`OPS_envelope.body.data_block.dt_assoc.item.1.@_key`), detects arrays automatically; click JSON values to copy them
 - **Log-based Templates** — Reference data from previous requests with `{{logs.*}}` and `{{lastlog.*}}`
 - **Fallback Pipes** — Chain template variables with `|` for graceful fallbacks: `{{logs.body.id|body.id|$uuid}}`
 
