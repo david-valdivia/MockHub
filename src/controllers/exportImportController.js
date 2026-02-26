@@ -31,6 +31,7 @@ class ExportImportController {
                 for (const route of routes) {
                     const rules = await ruleRepo.findByRouteId(route.id);
                     groupData.routes.push({
+                        name: route.name || '',
                         method: route.method,
                         path_pattern: route.pathPattern,
                         capture_requests: route.captureRequests,
@@ -106,6 +107,7 @@ class ExportImportController {
                 for (const routeData of (groupData.routes || [])) {
                     const route = await routeRepo.create({
                         group_id: group.id,
+                        name: routeData.name || '',
                         method: routeData.method || 'ALL',
                         path_pattern: routeData.path_pattern,
                         capture_requests: routeData.capture_requests !== undefined ? routeData.capture_requests : true

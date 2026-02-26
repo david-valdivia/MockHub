@@ -4,6 +4,11 @@
       <h2 class="text-lg font-semibold text-gray-900 mb-4">Create Route</h2>
       <form @submit.prevent="submit" class="space-y-4">
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input v-model="routeName" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g. Get Client, Create Order" />
+          <p class="text-xs text-gray-400 mt-1">Descriptive name for this endpoint.</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">HTTP Method</label>
           <select v-model="method" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
             <option>GET</option><option>POST</option><option>PUT</option>
@@ -40,6 +45,7 @@ const props = defineProps({ groupId: Number })
 const emit = defineEmits(['close'])
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
+const routeName = ref('')
 const method = ref('GET')
 const pathPattern = ref('')
 const slug = ref('')
@@ -52,7 +58,7 @@ const autoSlug = computed(() => {
 async function submit() {
   try {
     saving.value = true
-    const data = { method: method.value, path_pattern: pathPattern.value }
+    const data = { name: routeName.value, method: method.value, path_pattern: pathPattern.value }
     if (slug.value) data.slug = slug.value
     await mockStore.createRoute(props.groupId, data)
     notificationStore.showToast('Route created', 'success')

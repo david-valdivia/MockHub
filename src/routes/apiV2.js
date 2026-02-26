@@ -6,8 +6,18 @@ const ruleController = require('../controllers/ruleController');
 const requestLogController = require('../controllers/requestLogController');
 const exportImportController = require('../controllers/exportImportController');
 const serverController = require('../controllers/serverController');
+const activeServerService = require('../services/activeServerService');
 
 const router = express.Router();
+
+// Active server (which server serves live traffic)
+router.get('/active-server', (req, res) => {
+    res.json({ serverId: activeServerService.get() });
+});
+router.put('/active-server', (req, res) => {
+    activeServerService.set(req.body.serverId);
+    res.json({ serverId: activeServerService.get() });
+});
 
 // Environments
 router.get('/environments', (req, res) => environmentController.getAll(req, res));

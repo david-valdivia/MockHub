@@ -13,8 +13,8 @@ const socketService = require('./socketService');
 class MockRoutingEngine {
     // Build full pattern by concatenating env.basePath + group.path + route.pathPattern
     _buildFullPattern(envBasePath, groupPath, routePathPattern) {
-        const parts = [envBasePath || '', groupPath || '', routePathPattern || ''];
-        let full = parts.join('');
+        const parts = [envBasePath || '', groupPath || '', routePathPattern || ''].filter(p => p !== '');
+        let full = parts.join('/');
         // Normalize: collapse duplicate slashes, ensure leading /
         full = full.replace(/\/+/g, '/');
         if (!full.startsWith('/')) full = '/' + full;
@@ -26,8 +26,8 @@ class MockRoutingEngine {
     async handleRequest(req, res, next) {
         const fullPath = req.path;
 
-        // 1. Get all active environments and build candidate routes with 3-level patterns
-        const environments = await environmentRepository.findAllActive();
+        // 1. Get ALL active environments (across all servers) and build candidate routes
+        const environments = await environmentRepository.findAllActiveForRouting();
         if (environments.length === 0) return next();
 
         let matchedEnv = null;

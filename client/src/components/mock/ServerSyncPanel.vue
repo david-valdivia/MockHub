@@ -68,6 +68,16 @@
             Last sync: {{ new Date(server.lastSync).toLocaleString() }}
           </p>
 
+          <!-- Dot legend -->
+          <div class="flex items-center px-1 py-1 mb-2 space-x-1.5 flex-wrap">
+            <span class="h-2 w-2 rounded-full border border-gray-300 bg-green-400 flex-shrink-0"></span>
+            <span class="text-[9px] text-gray-400">Synced</span>
+            <span class="h-2 w-2 rounded-full border border-gray-300 bg-amber-400 flex-shrink-0 ml-1.5"></span>
+            <span class="text-[9px] text-gray-400">Modified</span>
+            <span class="h-2 w-2 rounded-full border border-gray-300 bg-gray-300 flex-shrink-0 ml-1.5"></span>
+            <span class="text-[9px] text-gray-400">Not pushed</span>
+          </div>
+
           <!-- Action buttons -->
           <div class="flex space-x-2 mb-1">
             <button
@@ -76,20 +86,20 @@
               class="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center space-x-1"
             >
               <ArrowDownTrayIcon class="h-3 w-3" />
-              <span>{{ loadingRemote ? 'Loading...' : 'Pull from GitHub' }}</span>
+              <span>{{ loadingRemote ? 'Loading...' : 'Pull' }}</span>
             </button>
             <button
               @click="showPushPanel = !showPushPanel"
               class="flex-1 px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center space-x-1"
             >
               <ArrowUpTrayIcon class="h-3 w-3" />
-              <span>Push to GitHub</span>
+              <span>Push</span>
             </button>
           </div>
 
           <!-- Remote environments (Pull from GitHub) -->
           <div v-if="remoteEnvs.length > 0" class="bg-white border border-gray-200 rounded-lg mb-2">
-            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">GitHub Environments</p>
+            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Remote Environments</p>
             <div
               v-for="env in remoteEnvs"
               :key="env.slug"
@@ -111,7 +121,7 @@
 
           <!-- Push panel -->
           <div v-if="showPushPanel" class="bg-white border border-gray-200 rounded-lg">
-            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Push to GitHub</p>
+            <p class="px-2 py-1.5 text-[10px] text-gray-500 font-semibold uppercase border-b border-gray-100">Push</p>
             <div
               v-for="env in mockStore.environments"
               :key="env.id"

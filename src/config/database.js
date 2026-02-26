@@ -158,6 +158,7 @@ class Database {
         await this.migrateEnvironmentServerId();
         await this.migrateBasePathUnique();
         await this.migrateGroupPath();
+        await this.migrateRouteName();
     }
 
     async migrateResponsesTable() {
@@ -382,6 +383,18 @@ class Database {
         } catch (error) {
             try { await this.db.exec('ROLLBACK'); } catch(e) {}
             console.error('base_path UNIQUE migration error:', error);
+        }
+    }
+
+    async migrateRouteName() {
+        try {
+            const info = await this.db.all('PRAGMA table_info(routes)');
+            if (!info.find(c => c.name === 'name')) {
+                console.log('Adding name column to routes table');
+                await this.db.exec("ALTER TABLE routes ADD COLUMN name TEXT DEFAULT ''");
+            }
+        } catch (error) {
+            console.error('Route name migration error:', error);
         }
     }
 

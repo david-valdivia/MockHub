@@ -19,7 +19,7 @@ class ContentHashService {
     }
 
     routeContent(route) {
-        return { method: route.method, path_pattern: route.pathPattern || route.path_pattern, capture_requests: route.captureRequests ?? route.capture_requests ?? true };
+        return { name: route.name || '', method: route.method, path_pattern: route.pathPattern || route.path_pattern, capture_requests: route.captureRequests ?? route.capture_requests ?? true };
     }
 
     ruleContent(rule) {

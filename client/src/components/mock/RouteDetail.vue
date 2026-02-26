@@ -140,8 +140,8 @@ const fullUrl = computed(() => {
       break
     }
   }
-  const parts = [env.basePath || '', groupPath, route.pathPattern || '']
-  let full = parts.join('')
+  const parts = [env.basePath || '', groupPath, route.pathPattern || ''].filter(p => p !== '')
+  let full = parts.join('/')
   full = full.replace(/\/+/g, '/')
   if (!full.startsWith('/')) full = '/' + full
   if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)

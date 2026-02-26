@@ -24,6 +24,7 @@
             class="flex items-center px-3 py-2 mx-2 rounded-lg cursor-pointer group"
             :class="mockStore.activeEnvironmentId === env.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'"
             @click="toggleEnvironment(env)"
+            @contextmenu.prevent="openEnvContextMenu($event, env)"
           >
             <ChevronRightIcon
               class="h-3.5 w-3.5 mr-1.5 transition-transform flex-shrink-0"
@@ -154,9 +155,13 @@
           <ClipboardDocumentIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Copy URL</span>
         </button>
-        <button @click="ctxRename" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+        <button @click="ctxEditName" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
-          <span>Rename</span>
+          <span>Edit Name</span>
+        </button>
+        <button @click="ctxEditPath" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Edit Path</span>
         </button>
         <button @click="ctxDuplicate" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <DocumentDuplicateIcon class="h-3.5 w-3.5 text-gray-400" />
@@ -187,6 +192,15 @@
         class="fixed z-[99999] bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]"
         :style="{ top: groupCtxMenu.y + 'px', left: groupCtxMenu.x + 'px' }"
       >
+        <button @click="groupCtxEditName" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Edit Name</span>
+        </button>
+        <button @click="groupCtxEditPath" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Edit Path</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
         <button @click="groupCtxAddRoute" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
           <PlusIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Add Route</span>
@@ -197,6 +211,48 @@
         </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="groupCtxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
+          <TrashIcon class="h-3.5 w-3.5" />
+          <span>Delete</span>
+        </button>
+      </div>
+    </Teleport>
+
+    <!-- Environment Context Menu -->
+    <Teleport to="body">
+      <div
+        v-if="envCtxMenu.visible"
+        class="fixed inset-0 z-[99998]"
+        @click="closeEnvContextMenu"
+        @contextmenu.prevent="closeEnvContextMenu"
+      ></div>
+      <div
+        v-if="envCtxMenu.visible"
+        class="fixed z-[99999] bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+        :style="{ top: envCtxMenu.y + 'px', left: envCtxMenu.x + 'px' }"
+      >
+        <button @click="envCtxEditName" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Edit Name</span>
+        </button>
+        <button @click="envCtxEditPath" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PencilSquareIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Edit Path</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button @click="envCtxAddGroup" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <PlusIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Add Group</span>
+        </button>
+        <button v-if="hasCopyTargets" @click="envCtxCopyTo" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Copy To...</span>
+        </button>
+        <button @click="envCtxExport" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <ArrowDownTrayIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Export</span>
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button @click="envCtxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
           <TrashIcon class="h-3.5 w-3.5" />
           <span>Delete</span>
         </button>
@@ -319,8 +375,8 @@ function addRoute(group) {
 }
 
 function buildFullUrl(env, group, rt) {
-  const parts = [env.basePath || '', group?.path || '', rt.pathPattern || '']
-  let full = parts.join('')
+  const parts = [env.basePath || '', group?.path || '', rt.pathPattern || ''].filter(p => p !== '')
+  let full = parts.join('/')
   full = full.replace(/\/+/g, '/')
   if (!full.startsWith('/')) full = '/' + full
   if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)
@@ -451,6 +507,7 @@ const ctxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: null, r
 
 function openContextMenu(event, env, group, rt) {
   closeGroupContextMenu()
+  closeEnvContextMenu()
   ctxMenu.x = event.clientX
   ctxMenu.y = event.clientY
   ctxMenu.env = env
@@ -468,29 +525,46 @@ function ctxCopyUrl() {
   closeContextMenu()
 }
 
-async function ctxRename() {
+async function ctxEditName() {
+  const { route } = ctxMenu
+  closeContextMenu()
+  const { value: newName } = await Swal.fire({
+    title: 'Edit route name',
+    input: 'text',
+    inputLabel: 'Name (descriptive label)',
+    inputValue: route.name || '',
+    showCancelButton: true,
+    confirmButtonText: 'Save'
+  })
+  if (newName === undefined) return
+  try {
+    await mockStore.updateRoute(route.id, { name: newName.trim() })
+    notificationStore.showToast('Route name updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update route name', 'error')
+  }
+}
+
+async function ctxEditPath() {
   const { route } = ctxMenu
   closeContextMenu()
 
-  const { value: newPath } = await Swal.fire({
-    title: 'Rename route',
+  const { value } = await Swal.fire({
+    title: 'Edit route path',
     input: 'text',
-    inputLabel: 'Path pattern',
-    inputValue: route.pathPattern,
+    inputLabel: 'Path (optional, e.g. /charges/:id)',
+    inputValue: route.pathPattern || '',
     showCancelButton: true,
-    confirmButtonText: 'Rename',
-    inputValidator: (val) => {
-      if (!val || !val.trim()) return 'Path cannot be empty'
-    }
+    confirmButtonText: 'Save'
   })
 
-  if (!newPath) return
+  if (value === undefined) return
 
   try {
-    await mockStore.updateRoute(route.id, { path_pattern: newPath.trim() })
-    notificationStore.showToast('Route renamed', 'success')
+    await mockStore.updateRoute(route.id, { path_pattern: value.trim() })
+    notificationStore.showToast('Route path updated', 'success')
   } catch (e) {
-    notificationStore.showToast('Failed to rename route', 'error')
+    notificationStore.showToast('Failed to update route path', 'error')
   }
 }
 
@@ -556,6 +630,7 @@ const groupCtxMenu = reactive({ visible: false, x: 0, y: 0, env: null, group: nu
 
 function openGroupContextMenu(event, env, group) {
   closeContextMenu()
+  closeEnvContextMenu()
   groupCtxMenu.x = event.clientX
   groupCtxMenu.y = event.clientY
   groupCtxMenu.env = env
@@ -582,6 +657,126 @@ function groupCtxDelete() {
   const { group } = groupCtxMenu
   closeGroupContextMenu()
   confirmDeleteGroup(group)
+}
+
+async function groupCtxEditName() {
+  const { group } = groupCtxMenu
+  closeGroupContextMenu()
+  const { value: newName } = await Swal.fire({
+    title: 'Edit group name',
+    input: 'text',
+    inputLabel: 'Name',
+    inputValue: group.name,
+    showCancelButton: true,
+    confirmButtonText: 'Save',
+    inputValidator: (val) => { if (!val || !val.trim()) return 'Name cannot be empty' }
+  })
+  if (!newName) return
+  try {
+    await mockStore.updateGroup(group.id, { name: newName.trim() })
+    notificationStore.showToast('Group name updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update group name', 'error')
+  }
+}
+
+async function groupCtxEditPath() {
+  const { group } = groupCtxMenu
+  closeGroupContextMenu()
+  const { value } = await Swal.fire({
+    title: 'Edit group path',
+    input: 'text',
+    inputLabel: 'Path (optional, e.g. /:clientId/items)',
+    inputValue: group.path || '',
+    showCancelButton: true,
+    confirmButtonText: 'Save'
+  })
+  if (value === undefined) return
+  try {
+    await mockStore.updateGroup(group.id, { path: value.trim() })
+    notificationStore.showToast('Group path updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update group path', 'error')
+  }
+}
+
+// --- Environment Context Menu ---
+const envCtxMenu = reactive({ visible: false, x: 0, y: 0, env: null })
+
+function openEnvContextMenu(event, env) {
+  closeContextMenu()
+  closeGroupContextMenu()
+  envCtxMenu.x = event.clientX
+  envCtxMenu.y = event.clientY
+  envCtxMenu.env = env
+  envCtxMenu.visible = true
+}
+
+function closeEnvContextMenu() {
+  envCtxMenu.visible = false
+}
+
+async function envCtxEditName() {
+  const { env } = envCtxMenu
+  closeEnvContextMenu()
+  const { value: newName } = await Swal.fire({
+    title: 'Edit environment name',
+    input: 'text',
+    inputLabel: 'Name',
+    inputValue: env.name,
+    showCancelButton: true,
+    confirmButtonText: 'Save',
+    inputValidator: (val) => { if (!val || !val.trim()) return 'Name cannot be empty' }
+  })
+  if (!newName) return
+  try {
+    await mockStore.updateEnvironment(env.id, { name: newName.trim() })
+    notificationStore.showToast('Environment name updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update environment name', 'error')
+  }
+}
+
+async function envCtxEditPath() {
+  const { env } = envCtxMenu
+  closeEnvContextMenu()
+  const { value } = await Swal.fire({
+    title: 'Edit environment path',
+    input: 'text',
+    inputLabel: 'Path (optional, e.g. /api/v1)',
+    inputValue: env.basePath || '',
+    showCancelButton: true,
+    confirmButtonText: 'Save'
+  })
+  if (value === undefined) return
+  try {
+    await mockStore.updateEnvironment(env.id, { base_path: value.trim() })
+    notificationStore.showToast('Environment path updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update environment path', 'error')
+  }
+}
+
+function envCtxAddGroup() {
+  addGroup(envCtxMenu.env)
+  closeEnvContextMenu()
+}
+
+async function envCtxCopyTo() {
+  const { env } = envCtxMenu
+  closeEnvContextMenu()
+  await copyEnvTo(env)
+}
+
+function envCtxExport() {
+  doExport(envCtxMenu.env)
+  closeEnvContextMenu()
+}
+
+function envCtxDelete() {
+  const { env } = envCtxMenu
+  closeEnvContextMenu()
+  confirmDeleteEnv(env)
 }
 
 function buildDocsHtml() {

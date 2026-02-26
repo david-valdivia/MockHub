@@ -125,6 +125,7 @@ class EnvironmentController {
                     const rules = await ruleRepo.findByRouteId(route.id);
                     const newRoute = await routeRepo.create({
                         group_id: newGroup.id,
+                        name: route.name || '',
                         method: route.method,
                         path_pattern: route.pathPattern,
                         capture_requests: route.captureRequests,

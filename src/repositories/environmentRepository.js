@@ -1,5 +1,6 @@
 const Environment = require('../models/environment');
 const database = require('../config/database');
+const activeServerService = require('../services/activeServerService');
 
 class EnvironmentRepository {
     async findAll(serverId = undefined) {
@@ -30,6 +31,18 @@ class EnvironmentRepository {
     }
 
     async findAllActive() {
+        const db = database.getConnection();
+        const serverId = activeServerService.get();
+        let rows;
+        if (serverId === null) {
+            rows = await db.all('SELECT * FROM environments WHERE is_active = 1 AND server_id IS NULL ORDER BY length(base_path) DESC');
+        } else {
+            rows = await db.all('SELECT * FROM environments WHERE is_active = 1 AND server_id = ? ORDER BY length(base_path) DESC', [serverId]);
+        }
+        return rows.map(row => Environment.fromDatabase(row));
+    }
+
+    async findAllActiveForRouting() {
         const db = database.getConnection();
         const rows = await db.all('SELECT * FROM environments WHERE is_active = 1 ORDER BY length(base_path) DESC');
         return rows.map(row => Environment.fromDatabase(row));

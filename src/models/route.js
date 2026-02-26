@@ -2,6 +2,7 @@ class Route {
     constructor(data) {
         this.id = data.id;
         this.groupId = data.group_id;
+        this.name = data.name || '';
         this.method = data.method || 'ALL';
         this.pathPattern = data.path_pattern || '';
         this.slug = data.slug || '';
@@ -17,6 +18,7 @@ class Route {
         return {
             id: this.id,
             groupId: this.groupId,
+            name: this.name,
             method: this.method,
             pathPattern: this.pathPattern,
             slug: this.slug,

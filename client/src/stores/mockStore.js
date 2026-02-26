@@ -99,6 +99,15 @@ export const useMockStore = defineStore('mock', () => {
     return response.data
   }
 
+  async function updateGroup(id, data) {
+    const response = await webhookApi.updateGroup(id, data)
+    if (activeEnvironment.value) {
+      await selectEnvironment(activeEnvironment.value.id)
+    }
+    refreshSyncStatus()
+    return response.data
+  }
+
   async function deleteGroup(id) {
     await webhookApi.deleteGroup(id)
     if (activeEnvironment.value) {
@@ -302,7 +311,9 @@ export const useMockStore = defineStore('mock', () => {
     activeEnvironment.value = null
     activeRoute.value = null
     routeLogs.value = []
+    await webhookApi.setActiveServer(serverId)
     await loadEnvironments()
+    loadSyncStatus(serverId)
   }
 
   async function selectLocalServer() {
@@ -311,6 +322,7 @@ export const useMockStore = defineStore('mock', () => {
     activeEnvironment.value = null
     activeRoute.value = null
     routeLogs.value = []
+    await webhookApi.setActiveServer(null)
     await loadEnvironments()
   }
 
@@ -366,6 +378,7 @@ export const useMockStore = defineStore('mock', () => {
   }
 
   async function initialize() {
+    await webhookApi.setActiveServer(activeSyncServerId.value)
     await loadEnvironments()
     await loadServers()
     setupSocketListeners()
@@ -377,7 +390,7 @@ export const useMockStore = defineStore('mock', () => {
     activeEnvironmentId, activeRouteId,
     initialize, loadEnvironments, selectEnvironment,
     createEnvironment, updateEnvironment, deleteEnvironment,
-    createGroup, deleteGroup,
+    createGroup, updateGroup, deleteGroup,
     createRoute, selectRoute, updateRoute, deleteRoute,
     createRule, updateRule, deleteRule,
     loadRouteLogs, clearRouteLogs,

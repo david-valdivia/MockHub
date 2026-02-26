@@ -212,10 +212,11 @@ class GitHubSyncService {
             for (const routeData of (groupData.routes || [])) {
                 const route = await routeRepo.create({
                     group_id: group.id,
+                    name: routeData.name || '',
                     method: routeData.method || 'ALL',
                     path_pattern: routeData.path_pattern,
                     capture_requests: routeData.capture_requests !== undefined ? routeData.capture_requests : true,
-                    slug: this.slugify(routeData.path_pattern || 'route')
+                    slug: this.slugify(routeData.path_pattern || routeData.name || 'route')
                 });
 
                 for (const ruleData of (routeData.rules || [])) {
@@ -459,6 +460,7 @@ class GitHubSyncService {
         const rules = await ruleRepo.findByRouteId(route.id);
 
         const routeData = {
+            name: route.name || '',
             method: route.method,
             path_pattern: route.pathPattern,
             capture_requests: route.captureRequests,

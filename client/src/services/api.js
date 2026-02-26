@@ -106,6 +106,10 @@ export const webhookApi = {
   pushRouteToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/route`, data, { timeout: 60000 }),
   getServerSyncStatus: (id) => apiClient.get(`/v2/servers/${id}/sync-status`),
   copyBetweenServers: (sourceId, targetId, data) => apiClient.post(`/v2/servers/${sourceId}/copy/${targetId}`, data, { timeout: 120000 }),
+
+  // Active server
+  getActiveServer: () => apiClient.get('/v2/active-server'),
+  setActiveServer: (serverId) => apiClient.put('/v2/active-server', { serverId }),
 }
 
 export default apiClient
