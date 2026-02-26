@@ -29,7 +29,7 @@ Route Resolution
 ## Mock Routing Engine Flow
 
 ```
-1. Get ALL Active Envs  → findAllActiveForRouting() → all environments with is_active=1 (across all servers)
+1. Get Active Envs      → findAllActive() → environments with is_active=1 for the selected server context
 2. Build Candidates     → for each env → groups → routes: build fullPattern = env.path + group.path + route.path
 3. Sort by Specificity  → longest patterns first (most specific wins)
 4. Match Request        → path-to-regexp match against fullPattern, extract :params from all 3 levels
@@ -64,6 +64,8 @@ environments (id, name, base_path, description, is_active, slug, server_id, crea
 - `path` on groups participates in URL concatenation (env.path + group.path + route.path)
 - `slug` on environments, groups, and routes is used for GitHub sync file naming
 - Webhook fields on rules configure async callbacks; webhook result fields on request_logs store the outcome
+- `_metadata.json` in GitHub contains content hashes per environment; updated on both pull and push
+- `sync_tracking` table records last-pushed hashes per entity for sync status comparison
 
 ## Directory Structure
 
@@ -80,7 +82,7 @@ src/
 │   ├── ruleController.js
 │   ├── requestLogController.js
 │   ├── exportImportController.js
-│   └── serverController.js     # GitHub server management, pull/push/sync
+│   └── serverController.js     # GitHub server management, pull/push/sync, metadata sync on pull
 ├── models/
 │   ├── environment.js          # basePath sanitization (optional), validate, toJSON
 │   ├── group.js                # name + optional path for URL concatenation
@@ -88,7 +90,7 @@ src/
 │   ├── rule.js                 # conditions, response, delay, webhook callback config
 │   └── requestLog.js           # includes webhook result fields
 ├── repositories/               # Data access layer (SQL queries)
-│   ├── environmentRepository.js # findAllActiveForRouting() returns all active across servers
+│   ├── environmentRepository.js # findAllActive() returns active envs for selected server context
 │   ├── groupRepository.js
 │   ├── routeRepository.js
 │   ├── ruleRepository.js       # findByRouteId() returns sorted by priority ASC
@@ -98,7 +100,7 @@ src/
 │   ├── conditionEvaluator.js   # AND/OR groups, 13 operators, case-insensitive headers
 │   ├── templateEngine.js       # {{var}} resolution, fallback pipes, built-in variables
 │   ├── socketService.js        # Socket.IO wrapper for real-time events
-│   ├── githubSyncService.js    # GitHub API integration for pull/push with content hashing
+│   ├── githubSyncService.js    # GitHub API: pull/push with content hashing, metadata sync on both directions
 │   ├── contentHashService.js   # SHA-256 content hashing for sync change detection
 │   └── activeServerService.js  # Tracks which server context the UI is viewing
 ├── middleware/
@@ -116,9 +118,9 @@ client/
 │   │   ├── Dashboard.vue       # Legacy webhook testing view
 │   │   └── MockDashboard.vue   # MockHub main view (sidebar + route detail)
 │   ├── components/mock/
-│   │   ├── EnvironmentSidebar.vue  # Resizable tree nav + right-click context menus + copy flow
+│   │   ├── EnvironmentSidebar.vue  # Resizable tree nav + right-click context menus + copy/push flow
 │   │   ├── RouteDetail.vue         # Tabs: Rules + Request Logs, full URL display
-│   │   ├── RuleEditor.vue          # Rule card: highlighted body/webhook editors, tag insert, beautify
+│   │   ├── RuleEditor.vue          # Rule card: focus-toggle body editors, tag insert at cursor, template-aware beautify
 │   │   ├── ConditionBuilder.vue    # AND/OR conditions with field autocomplete
 │   │   ├── RequestLogPanel.vue     # Log viewer with webhook callback results
 │   │   ├── SyntaxHighlighter.vue   # JSON/XML colorization

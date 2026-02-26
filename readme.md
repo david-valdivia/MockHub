@@ -17,7 +17,7 @@ A configurable API mocker with dynamic routes, conditional rules, template-power
 - **Real-time Updates** — Socket.IO broadcasts new requests instantly to the dashboard
 
 ### Organization & Editing
-- **Right-click Context Menus** — Edit name, path, copy, duplicate, and delete on all 3 levels (environment, group, route)
+- **Right-click Context Menus** — Edit name, path, copy, duplicate, push, and delete on all 3 levels (environment, group, route)
 - **Drag & Drop** — Reorder rule priority by dragging
 - **Resizable Sidebar** — Drag to resize between 200px and 400px, persisted across sessions
 - **Export/Import** — Share mock configurations as JSON files between teams
@@ -25,7 +25,8 @@ A configurable API mocker with dynamic routes, conditional rules, template-power
 ### GitHub Sync
 - **GitHub Servers** — Connect GitHub repos as servers to store/sync mock configurations
 - **Pull/Push** — Sync environments to/from GitHub repos with content hash change detection
-- **Granular Push** — Push individual groups or routes instead of full environments
+- **Granular Push** — Push individual groups or routes from context menu with loading indicator
+- **Metadata Sync** — `_metadata.json` and content hashes updated on both pull and push for reliable sync status
 - **Server Tenants** — Each GitHub server has independent environments, isolated from local ones
 
 ### Copy & Reuse
@@ -34,9 +35,9 @@ A configurable API mocker with dynamic routes, conditional rules, template-power
 - **Copy at Any Level** — Copy an entire environment, a single group (with routes/rules), or a single route (with rules)
 
 ### Templates & Editing
-- **Syntax-highlighted Body Editor** — JSON/XML/template highlighting for response and webhook bodies
-- **Insert Tag Panel** — Click to insert template variables from categorized panels (both response and webhook body)
-- **Beautify** — Auto-format JSON/XML in response and webhook body editors
+- **Syntax-highlighted Body Editor** — JSON/XML/template highlighting for response and webhook bodies (focus-toggle: highlighted preview when idle, plain textarea when editing)
+- **Insert Tag Panel** — Click to insert template variables at cursor position from categorized panels (both response and webhook body)
+- **Beautify** — Auto-format JSON/XML in response and webhook body editors, supports `{{template}}` tags as unquoted values
 - **XML Support** — Parse and respond with XML bodies
 - **Log-based Templates** — Reference data from previous requests with `{{logs.*}}` and `{{lastlog.*}}`
 - **Fallback Pipes** — Chain template variables with `|` for graceful fallbacks: `{{logs.body.id|body.id|$uuid}}`
@@ -104,7 +105,7 @@ npm run client:dev
 4. **Configure rules** — Add conditions and response bodies with template variables
 5. **Send requests** — `curl -X POST http://localhost:1995/stripe/payments/ch_123` and see the mock response
 6. **Add a callback** — Configure an async webhook in the rule to fire after the response
-7. **Right-click** — Edit names, paths, copy, or duplicate at any level
+7. **Right-click** — Edit names, paths, copy, push to GitHub, or duplicate at any level
 
 ## Condition Operators
 
