@@ -1,4 +1,6 @@
 const { match } = require('path-to-regexp');
+const axios = require('axios');
+const https = require('https');
 const environmentRepository = require('../repositories/environmentRepository');
 const routeRepository = require('../repositories/routeRepository');
 const ruleRepository = require('../repositories/ruleRepository');
@@ -116,6 +118,7 @@ class MockRoutingEngine {
         const resolvedBody = templateEngine.resolve(cleanBody, context);
 
         // 7. Capture request if enabled
+        let savedLog = null;
         if (matchedRoute.captureRequests) {
             const logData = {
                 route_id: matchedRoute.id,
@@ -130,7 +133,7 @@ class MockRoutingEngine {
                 response_body: resolvedBody
             };
 
-            const savedLog = await requestLogRepository.create(logData);
+            savedLog = await requestLogRepository.create(logData);
 
             socketService.broadcastMessage('mockRequestReceived', {
                 environmentId: matchedEnv.id,
@@ -144,6 +147,117 @@ class MockRoutingEngine {
         res.status(matchedRule.statusCode)
             .type(matchedRule.contentType)
             .send(resolvedBody);
+
+        // 9. Fire async webhook callback (fire-and-forget, after response is sent)
+        if (matchedRule.webhookUrl && matchedRule.webhookEnabled !== false) {
+            const webhookDelay = matchedRule.webhookDelay || 0;
+            const fireWebhook = async () => {
+                let resolvedWebhookUrl = matchedRule.webhookUrl;
+                let resolvedWebhookBody = '';
+                let resolvedHeaders = {};
+                try {
+                    const cleanWebhookBody = (matchedRule.webhookBody || '').replace(/[\u00A0\u2000-\u200F\u2028\u2029\uFEFF]/g, ' ');
+                    resolvedWebhookBody = templateEngine.resolve(cleanWebhookBody, context);
+                    resolvedWebhookUrl = templateEngine.resolve(matchedRule.webhookUrl, context);
+
+                    // Parse and resolve custom headers
+                    let parsedHeaders = matchedRule.webhookHeaders || {};
+                    if (typeof parsedHeaders === 'string') {
+                        try { parsedHeaders = JSON.parse(parsedHeaders); } catch (_) { parsedHeaders = {}; }
+                    }
+                    for (const [key, val] of Object.entries(parsedHeaders)) {
+                        resolvedHeaders[key] = templateEngine.resolve(String(val), context);
+                    }
+
+                    // Set Content-Type from dedicated field, fallback to headers, then default
+                    const webhookContentType = matchedRule.webhookContentType || 'application/json';
+                    if (!resolvedHeaders['content-type'] && !resolvedHeaders['Content-Type']) {
+                        resolvedHeaders['Content-Type'] = webhookContentType;
+                    }
+
+                    // Parse body as JSON for axios if content type is JSON
+                    let data = resolvedWebhookBody;
+                    const ct = (resolvedHeaders['content-type'] || resolvedHeaders['Content-Type'] || '').toLowerCase();
+                    if (ct.includes('application/json') && data) {
+                        try { data = JSON.parse(data); } catch (_) {}
+                    }
+
+                    const method = (matchedRule.webhookMethod || 'POST').toLowerCase();
+                    const response = await axios({
+                        method,
+                        url: resolvedWebhookUrl,
+                        headers: resolvedHeaders,
+                        data: data || undefined,
+                        timeout: 30000,
+                        validateStatus: () => true,
+                        httpsAgent: new https.Agent({ rejectUnauthorized: false })
+                    });
+
+                    console.log(`[Webhook Callback] ${method.toUpperCase()} ${resolvedWebhookUrl} → ${response.status} (after ${webhookDelay}ms delay)`);
+
+                    // Persist webhook result to the request log
+                    if (savedLog) {
+                        const responseBody = typeof response.data === 'object' ? JSON.stringify(response.data) : String(response.data || '');
+                        const updatedLog = await requestLogRepository.updateWebhookResult(savedLog.id, {
+                            webhook_url: resolvedWebhookUrl,
+                            webhook_method: method.toUpperCase(),
+                            webhook_request_headers: JSON.stringify(resolvedHeaders),
+                            webhook_request_body: resolvedWebhookBody || null,
+                            webhook_response_status: response.status,
+                            webhook_response_headers: JSON.stringify(response.headers || {}),
+                            webhook_response_body: responseBody
+                        });
+
+                        socketService.broadcastMessage('webhookResultUpdated', {
+                            routeId: matchedRoute.id,
+                            requestLog: updatedLog.toJSON()
+                        });
+                    }
+
+                    socketService.broadcastMessage('webhookCallbackSent', {
+                        environmentId: matchedEnv.id,
+                        routeId: matchedRoute.id,
+                        ruleId: matchedRule.id,
+                        url: resolvedWebhookUrl,
+                        method: method.toUpperCase(),
+                        status: response.status,
+                        delay: webhookDelay
+                    });
+                } catch (err) {
+                    console.error(`[Webhook Callback Error] ${matchedRule.webhookUrl}:`, err.message);
+
+                    // Persist webhook error to the request log
+                    if (savedLog) {
+                        const updatedLog = await requestLogRepository.updateWebhookResult(savedLog.id, {
+                            webhook_url: resolvedWebhookUrl,
+                            webhook_method: (matchedRule.webhookMethod || 'POST').toUpperCase(),
+                            webhook_request_headers: JSON.stringify(resolvedHeaders),
+                            webhook_request_body: resolvedWebhookBody || null,
+                            webhook_error: err.message
+                        });
+
+                        socketService.broadcastMessage('webhookResultUpdated', {
+                            routeId: matchedRoute.id,
+                            requestLog: updatedLog.toJSON()
+                        });
+                    }
+
+                    socketService.broadcastMessage('webhookCallbackError', {
+                        environmentId: matchedEnv.id,
+                        routeId: matchedRoute.id,
+                        ruleId: matchedRule.id,
+                        url: matchedRule.webhookUrl,
+                        error: err.message
+                    });
+                }
+            };
+
+            if (webhookDelay > 0) {
+                setTimeout(fireWebhook, webhookDelay);
+            } else {
+                setImmediate(fireWebhook);
+            }
+        }
     }
     tryParseJSON(str) {
         if (!str || typeof str !== 'string') return str;

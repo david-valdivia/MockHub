@@ -219,15 +219,27 @@ async function addRule() {
 }
 
 function copyAllRules() {
-  const rules = (mockStore.activeRoute.rules || []).map(r => ({
-    name: r.name || '',
-    priority: r.priority,
-    conditions: r.conditions || [],
-    status_code: r.statusCode,
-    content_type: r.contentType,
-    body: r.body,
-    delay: r.delay
-  }))
+  const rules = (mockStore.activeRoute.rules || []).map(r => {
+    const rule = {
+      name: r.name || '',
+      priority: r.priority,
+      conditions: r.conditions || [],
+      status_code: r.statusCode,
+      content_type: r.contentType,
+      body: r.body,
+      delay: r.delay
+    }
+    if (r.webhookUrl) {
+      rule.webhook_url = r.webhookUrl
+      rule.webhook_method = r.webhookMethod
+      rule.webhook_headers = r.webhookHeaders
+      rule.webhook_body = r.webhookBody
+      rule.webhook_delay = r.webhookDelay
+      rule.webhook_content_type = r.webhookContentType
+      rule.webhook_enabled = r.webhookEnabled
+    }
+    return rule
+  })
   const json = JSON.stringify(rules, null, 2)
   navigator.clipboard.writeText(json)
     .then(() => notificationStore.showToast('Rules copied to clipboard', 'success'))
@@ -259,7 +271,14 @@ async function applyBulkRules() {
         status_code: r.status_code || 200,
         content_type: r.content_type || 'application/json',
         body,
-        delay: r.delay || 0
+        delay: r.delay || 0,
+        webhook_url: r.webhook_url || null,
+        webhook_method: r.webhook_method || 'POST',
+        webhook_headers: r.webhook_headers || {},
+        webhook_body: r.webhook_body || null,
+        webhook_delay: r.webhook_delay || 0,
+        webhook_content_type: r.webhook_content_type || 'application/json',
+        webhook_enabled: r.webhook_enabled !== undefined ? r.webhook_enabled : true
       })
       created++
     }

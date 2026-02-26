@@ -190,6 +190,15 @@ export const useMockStore = defineStore('mock', () => {
       }
       notificationStore.showToast('New mock request received', 'info')
     })
+
+    socketService.on('webhookResultUpdated', ({ routeId, requestLog }) => {
+      if (activeRouteId.value === routeId) {
+        const idx = routeLogs.value.findIndex(l => l.id === requestLog.id)
+        if (idx !== -1) {
+          routeLogs.value[idx] = requestLog
+        }
+      }
+    })
   }
 
   async function initialize() {

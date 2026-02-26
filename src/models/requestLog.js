@@ -15,6 +15,19 @@ class RequestLog {
         this.matchedRuleId = data.matched_rule_id;
         this.responseStatus = data.response_status;
         this.responseBody = data.response_body;
+        this.webhookSent = !!data.webhook_sent;
+        this.webhookUrl = data.webhook_url || null;
+        this.webhookMethod = data.webhook_method || null;
+        this.webhookRequestHeaders = data.webhook_request_headers ?
+            (typeof data.webhook_request_headers === 'string' ? this.tryParseJSON(data.webhook_request_headers) : data.webhook_request_headers)
+            : null;
+        this.webhookRequestBody = data.webhook_request_body || null;
+        this.webhookResponseStatus = data.webhook_response_status || null;
+        this.webhookResponseHeaders = data.webhook_response_headers ?
+            (typeof data.webhook_response_headers === 'string' ? this.tryParseJSON(data.webhook_response_headers) : data.webhook_response_headers)
+            : null;
+        this.webhookResponseBody = data.webhook_response_body || null;
+        this.webhookError = data.webhook_error || null;
         this.timestamp = data.timestamp;
     }
 
@@ -35,6 +48,15 @@ class RequestLog {
             matchedRuleId: this.matchedRuleId,
             responseStatus: this.responseStatus,
             responseBody: this.responseBody,
+            webhookSent: this.webhookSent,
+            webhookUrl: this.webhookUrl,
+            webhookMethod: this.webhookMethod,
+            webhookRequestHeaders: this.webhookRequestHeaders,
+            webhookRequestBody: this.webhookRequestBody,
+            webhookResponseStatus: this.webhookResponseStatus,
+            webhookResponseHeaders: this.webhookResponseHeaders,
+            webhookResponseBody: this.webhookResponseBody,
+            webhookError: this.webhookError,
             timestamp: this.timestamp
         };
     }

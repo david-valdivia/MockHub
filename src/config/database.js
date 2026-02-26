@@ -123,6 +123,7 @@ class Database {
         await this.migrateResponsesTable();
         await this.migrateRequestsTable();
         await this.migrateRulesTable();
+        await this.migrateRequestLogsTable();
     }
 
     async migrateResponsesTable() {
@@ -178,12 +179,54 @@ class Database {
         try {
             const tableInfo = await this.db.all('PRAGMA table_info(rules)');
             const columnNames = tableInfo.map(col => col.name);
-            if (!columnNames.includes('name')) {
-                console.log('Adding column name to rules table');
-                await this.db.exec(`ALTER TABLE rules ADD COLUMN name TEXT DEFAULT ''`);
+
+            const columnsToAdd = [
+                { name: 'name', type: "TEXT DEFAULT ''" },
+                { name: 'webhook_url', type: 'TEXT' },
+                { name: 'webhook_method', type: "TEXT DEFAULT 'POST'" },
+                { name: 'webhook_headers', type: "TEXT DEFAULT '{}'" },
+                { name: 'webhook_body', type: 'TEXT' },
+                { name: 'webhook_delay', type: 'INTEGER DEFAULT 0' },
+                { name: 'webhook_content_type', type: "TEXT DEFAULT 'application/json'" },
+                { name: 'webhook_enabled', type: 'INTEGER DEFAULT 1' }
+            ];
+
+            for (const col of columnsToAdd) {
+                if (!columnNames.includes(col.name)) {
+                    console.log(`Adding column ${col.name} to rules table`);
+                    await this.db.exec(`ALTER TABLE rules ADD COLUMN ${col.name} ${col.type}`);
+                }
             }
         } catch (error) {
             console.error('Rules migration error:', error);
+        }
+    }
+
+    async migrateRequestLogsTable() {
+        try {
+            const tableInfo = await this.db.all('PRAGMA table_info(request_logs)');
+            const columnNames = tableInfo.map(col => col.name);
+
+            const columnsToAdd = [
+                { name: 'webhook_sent', type: 'INTEGER DEFAULT 0' },
+                { name: 'webhook_url', type: 'TEXT' },
+                { name: 'webhook_method', type: 'TEXT' },
+                { name: 'webhook_request_headers', type: 'TEXT' },
+                { name: 'webhook_request_body', type: 'TEXT' },
+                { name: 'webhook_response_status', type: 'INTEGER' },
+                { name: 'webhook_response_headers', type: 'TEXT' },
+                { name: 'webhook_response_body', type: 'TEXT' },
+                { name: 'webhook_error', type: 'TEXT' }
+            ];
+
+            for (const col of columnsToAdd) {
+                if (!columnNames.includes(col.name)) {
+                    console.log(`Adding column ${col.name} to request_logs table`);
+                    await this.db.exec(`ALTER TABLE request_logs ADD COLUMN ${col.name} ${col.type}`);
+                }
+            }
+        } catch (error) {
+            console.error('Request logs migration error:', error);
         }
     }
 

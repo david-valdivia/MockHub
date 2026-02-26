@@ -34,17 +34,31 @@ class ExportImportController {
                         method: route.method,
                         path_pattern: route.pathPattern,
                         capture_requests: route.captureRequests,
-                        rules: rules.map(r => ({
-                            name: r.name || '',
-                            priority: r.priority,
-                            conditions: r.conditions,
-                            response: {
-                                status_code: r.statusCode,
-                                content_type: r.contentType,
-                                body: r.body,
-                                delay: r.delay
+                        rules: rules.map(r => {
+                            const rule = {
+                                name: r.name || '',
+                                priority: r.priority,
+                                conditions: r.conditions,
+                                response: {
+                                    status_code: r.statusCode,
+                                    content_type: r.contentType,
+                                    body: r.body,
+                                    delay: r.delay
+                                }
+                            };
+                            if (r.webhookUrl) {
+                                rule.webhook = {
+                                    url: r.webhookUrl,
+                                    method: r.webhookMethod,
+                                    headers: r.webhookHeaders,
+                                    body: r.webhookBody,
+                                    delay: r.webhookDelay,
+                                    content_type: r.webhookContentType,
+                                    enabled: r.webhookEnabled
+                                };
                             }
-                        }))
+                            return rule;
+                        })
                     });
                 }
 
@@ -105,7 +119,14 @@ class ExportImportController {
                             status_code: ruleData.response?.status_code || 200,
                             content_type: ruleData.response?.content_type || 'application/json',
                             body: ruleData.response?.body || '{"message":"OK"}',
-                            delay: ruleData.response?.delay || 0
+                            delay: ruleData.response?.delay || 0,
+                            webhook_url: ruleData.webhook?.url || null,
+                            webhook_method: ruleData.webhook?.method || 'POST',
+                            webhook_headers: ruleData.webhook?.headers || {},
+                            webhook_body: ruleData.webhook?.body || null,
+                            webhook_delay: ruleData.webhook?.delay || 0,
+                            webhook_content_type: ruleData.webhook?.content_type || 'application/json',
+                            webhook_enabled: ruleData.webhook?.enabled !== undefined ? ruleData.webhook.enabled : true
                         });
                     }
                 }
