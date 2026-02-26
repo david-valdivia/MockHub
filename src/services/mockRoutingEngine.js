@@ -26,8 +26,8 @@ class MockRoutingEngine {
     async handleRequest(req, res, next) {
         const fullPath = req.path;
 
-        // 1. Get ALL active environments (across all servers) and build candidate routes
-        const environments = await environmentRepository.findAllActiveForRouting();
+        // 1. Get active environments for the selected server context
+        const environments = await environmentRepository.findAllActive();
         if (environments.length === 0) return next();
 
         let matchedEnv = null;
