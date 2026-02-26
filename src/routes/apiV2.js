@@ -56,5 +56,7 @@ router.post('/servers/:id/test', (req, res) => serverController.testConnection(r
 router.get('/servers/:id/environments', (req, res) => serverController.listRemoteEnvironments(req, res));
 router.post('/servers/:id/pull', (req, res) => serverController.pull(req, res));
 router.post('/servers/:id/push', (req, res) => serverController.push(req, res));
+router.post('/servers/:id/push/group', (req, res) => serverController.pushGroup(req, res));
+router.post('/servers/:id/push/route', (req, res) => serverController.pushRoute(req, res));
 
 module.exports = router;

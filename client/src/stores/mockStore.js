@@ -224,6 +224,18 @@ export const useMockStore = defineStore('mock', () => {
     return response.data
   }
 
+  async function pushGroupToServer(serverId, groupId) {
+    const response = await webhookApi.pushGroupToServer(serverId, { groupId })
+    await loadServers()
+    return response.data
+  }
+
+  async function pushRouteToServer(serverId, routeId) {
+    const response = await webhookApi.pushRouteToServer(serverId, { routeId })
+    await loadServers()
+    return response.data
+  }
+
   function setActiveServer(server) {
     activeServer.value = server
   }
@@ -278,6 +290,6 @@ export const useMockStore = defineStore('mock', () => {
     exportEnvironment, importEnvironment,
     loadServers, createServer, updateServer, deleteServer,
     testServerConnection, getServerEnvironments,
-    pullFromServer, pushToServer, setActiveServer
+    pullFromServer, pushToServer, pushGroupToServer, pushRouteToServer, setActiveServer
   }
 })

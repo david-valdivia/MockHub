@@ -58,6 +58,9 @@
                   <button @click.stop="addRoute(group)" class="p-0.5 hover:bg-gray-200 rounded" title="Add route">
                     <PlusIcon class="h-3 w-3" />
                   </button>
+                  <button v-if="mockStore.servers.length > 0" @click.stop="pushGroup(group)" class="p-0.5 hover:bg-blue-100 hover:text-blue-600 rounded" title="Push group to server">
+                    <CloudArrowUpIcon class="h-3 w-3" />
+                  </button>
                   <button @click.stop="confirmDeleteGroup(group)" class="p-0.5 hover:bg-red-100 hover:text-red-600 rounded" title="Delete">
                     <TrashIcon class="h-3 w-3" />
                   </button>
@@ -147,6 +150,10 @@
           <DocumentDuplicateIcon class="h-3.5 w-3.5 text-gray-400" />
           <span>Duplicate</span>
         </button>
+        <button v-if="mockStore.servers.length > 0" @click="ctxPushRoute" class="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-100 flex items-center space-x-2">
+          <CloudArrowUpIcon class="h-3.5 w-3.5 text-gray-400" />
+          <span>Push to server</span>
+        </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button @click="ctxDelete" class="w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50 flex items-center space-x-2">
           <TrashIcon class="h-3.5 w-3.5" />
@@ -165,8 +172,8 @@ import { webhookApi } from '@/services/api'
 import { useNotificationStore } from '@/stores/notificationStore'
 import {
   ChevronRightIcon, ServerIcon, FolderIcon, PlusIcon,
-  ArrowDownTrayIcon, TrashIcon, ClipboardDocumentIcon, DocumentDuplicateIcon, PencilSquareIcon,
-  BookOpenIcon, XMarkIcon
+  ArrowDownTrayIcon, ArrowUpTrayIcon, TrashIcon, ClipboardDocumentIcon, DocumentDuplicateIcon, PencilSquareIcon,
+  BookOpenIcon, XMarkIcon, CloudArrowUpIcon
 } from '@heroicons/vue/24/outline'
 import CreateGroupModal from './CreateGroupModal.vue'
 import CreateRouteModal from './CreateRouteModal.vue'
@@ -375,6 +382,62 @@ async function ctxDuplicate() {
     notificationStore.showToast(`Route duplicated: ${full.pathPattern}-copy`, 'success')
   } catch (error) {
     notificationStore.showToast('Failed to duplicate route', 'error')
+  }
+}
+
+async function pickServer() {
+  const serverList = mockStore.servers
+  if (serverList.length === 1) return serverList[0]
+  const options = {}
+  serverList.forEach(s => { options[s.id] = s.name })
+  const { value } = await Swal.fire({
+    title: 'Select server',
+    input: 'select',
+    inputOptions: options,
+    showCancelButton: true,
+    inputValidator: (val) => { if (!val) return 'Please select a server' }
+  })
+  if (!value) return null
+  return serverList.find(s => s.id === parseInt(value))
+}
+
+async function pushGroup(group) {
+  const server = await pickServer()
+  if (!server) return
+  const { isConfirmed } = await Swal.fire({
+    title: 'Push group to GitHub?',
+    text: `Push "${group.name}" and all its routes to ${server.name}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Push'
+  })
+  if (!isConfirmed) return
+  try {
+    await mockStore.pushGroupToServer(server.id, group.id)
+    notificationStore.showToast(`Pushed group "${group.name}"`, 'success')
+  } catch (error) {
+    notificationStore.showToast(error.message || 'Push group failed', 'error')
+  }
+}
+
+async function ctxPushRoute() {
+  const { route } = ctxMenu
+  closeContextMenu()
+  const server = await pickServer()
+  if (!server) return
+  const { isConfirmed } = await Swal.fire({
+    title: 'Push route to GitHub?',
+    text: `Push "${route.method} ${route.pathPattern}" to ${server.name}?`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Push'
+  })
+  if (!isConfirmed) return
+  try {
+    await mockStore.pushRouteToServer(server.id, route.id)
+    notificationStore.showToast(`Pushed route "${route.pathPattern}"`, 'success')
+  } catch (error) {
+    notificationStore.showToast(error.message || 'Push route failed', 'error')
   }
 }
 

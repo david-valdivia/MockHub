@@ -123,6 +123,40 @@ class ServerController {
             res.status(500).json({ error: error.message || 'Push failed' });
         }
     }
+
+    async pushGroup(req, res) {
+        try {
+            const id = parseInt(req.params.id);
+            const serverRow = await serverRepo.findByIdWithToken(id);
+            if (!serverRow) return res.status(404).json({ error: 'Server not found' });
+
+            const { groupId } = req.body;
+            if (!groupId) return res.status(400).json({ error: 'groupId is required' });
+
+            const result = await githubSyncService.pushGroup(serverRow, groupId);
+            res.json(result);
+        } catch (error) {
+            console.error('Push group failed:', error);
+            res.status(500).json({ error: error.message || 'Push group failed' });
+        }
+    }
+
+    async pushRoute(req, res) {
+        try {
+            const id = parseInt(req.params.id);
+            const serverRow = await serverRepo.findByIdWithToken(id);
+            if (!serverRow) return res.status(404).json({ error: 'Server not found' });
+
+            const { routeId } = req.body;
+            if (!routeId) return res.status(400).json({ error: 'routeId is required' });
+
+            const result = await githubSyncService.pushRoute(serverRow, routeId);
+            res.json(result);
+        } catch (error) {
+            console.error('Push route failed:', error);
+            res.status(500).json({ error: error.message || 'Push route failed' });
+        }
+    }
 }
 
 module.exports = new ServerController();

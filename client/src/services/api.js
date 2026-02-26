@@ -101,6 +101,8 @@ export const webhookApi = {
   getServerEnvironments: (id) => apiClient.get(`/v2/servers/${id}/environments`),
   pullFromServer: (id, data) => apiClient.post(`/v2/servers/${id}/pull`, data, { timeout: 60000 }),
   pushToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push`, data, { timeout: 60000 }),
+  pushGroupToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/group`, data, { timeout: 60000 }),
+  pushRouteToServer: (id, data) => apiClient.post(`/v2/servers/${id}/push/route`, data, { timeout: 60000 }),
 }
 
 export default apiClient

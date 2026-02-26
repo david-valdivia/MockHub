@@ -275,45 +275,7 @@ class GitHubSyncService {
             );
 
             for (const route of routes) {
-                const routeSlug = route.slug || this.slugify(route.pathPattern);
-                const rules = await ruleRepo.findByRouteId(route.id);
-
-                const routeData = {
-                    method: route.method,
-                    path_pattern: route.pathPattern,
-                    capture_requests: route.captureRequests,
-                    rules: rules.map(r => {
-                        const rule = {
-                            name: r.name || '',
-                            priority: r.priority,
-                            conditions: r.conditions,
-                            response: {
-                                status_code: r.statusCode,
-                                content_type: r.contentType,
-                                body: r.body,
-                                delay: r.delay
-                            }
-                        };
-                        if (r.webhookUrl) {
-                            rule.webhook = {
-                                url: r.webhookUrl,
-                                method: r.webhookMethod,
-                                headers: r.webhookHeaders,
-                                body: r.webhookBody,
-                                delay: r.webhookDelay,
-                                content_type: r.webhookContentType,
-                                enabled: r.webhookEnabled
-                            };
-                        }
-                        return rule;
-                    })
-                };
-
-                await this._putFile(owner, repo, branch, serverRow.token,
-                    `${envSlug}/${groupSlug}/${routeSlug}.json`,
-                    JSON.stringify(routeData, null, 2),
-                    `MockHub sync: ${env.name}/${group.name}/${route.pathPattern}`
-                );
+                await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
             }
         }
 
@@ -321,6 +283,120 @@ class GitHubSyncService {
         await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
 
         return { success: true, envSlug };
+    }
+
+    async pushGroup(serverRow, groupId) {
+        const { owner, repo } = this._parseRepo(serverRow.repo_url);
+        const branch = serverRow.branch || 'main';
+
+        const group = await groupRepo.findById(groupId);
+        if (!group) throw new Error('Group not found');
+
+        const env = await environmentRepo.findById(group.environmentId);
+        if (!env) throw new Error('Environment not found');
+
+        const envSlug = env.slug || this.slugify(env.name);
+        const groupSlug = group.slug || this.slugify(group.name);
+        const routes = await routeRepo.findByGroupId(group.id);
+
+        // Ensure _environment.json exists
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/_environment.json`,
+            JSON.stringify({ name: env.name, base_path: env.basePath, description: env.description }, null, 2),
+            `MockHub sync: ${env.name}`
+        );
+
+        // Write _group.json
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/${groupSlug}/_group.json`,
+            JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
+            `MockHub sync: ${env.name}/${group.name}`
+        );
+
+        for (const route of routes) {
+            await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
+        }
+
+        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
+        return { success: true, envSlug, groupSlug };
+    }
+
+    async pushRoute(serverRow, routeId) {
+        const { owner, repo } = this._parseRepo(serverRow.repo_url);
+        const branch = serverRow.branch || 'main';
+
+        const route = await routeRepo.findById(routeId);
+        if (!route) throw new Error('Route not found');
+
+        const group = await groupRepo.findById(route.groupId);
+        if (!group) throw new Error('Group not found');
+
+        const env = await environmentRepo.findById(group.environmentId);
+        if (!env) throw new Error('Environment not found');
+
+        const envSlug = env.slug || this.slugify(env.name);
+        const groupSlug = group.slug || this.slugify(group.name);
+
+        // Ensure _environment.json exists
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/_environment.json`,
+            JSON.stringify({ name: env.name, base_path: env.basePath, description: env.description }, null, 2),
+            `MockHub sync: ${env.name}`
+        );
+
+        // Ensure _group.json exists
+        await this._putFile(owner, repo, branch, serverRow.token,
+            `${envSlug}/${groupSlug}/_group.json`,
+            JSON.stringify({ name: group.name, sort_order: group.sortOrder }, null, 2),
+            `MockHub sync: ${env.name}/${group.name}`
+        );
+
+        await this._pushSingleRoute(owner, repo, branch, serverRow.token, envSlug, groupSlug, env.name, group.name, route);
+
+        await serverRepo.update(serverRow.id, { last_sync: new Date().toISOString() });
+        return { success: true, envSlug, groupSlug, routeSlug: route.slug || this.slugify(route.pathPattern) };
+    }
+
+    async _pushSingleRoute(owner, repo, branch, token, envSlug, groupSlug, envName, groupName, route) {
+        const routeSlug = route.slug || this.slugify(route.pathPattern);
+        const rules = await ruleRepo.findByRouteId(route.id);
+
+        const routeData = {
+            method: route.method,
+            path_pattern: route.pathPattern,
+            capture_requests: route.captureRequests,
+            rules: rules.map(r => {
+                const rule = {
+                    name: r.name || '',
+                    priority: r.priority,
+                    conditions: r.conditions,
+                    response: {
+                        status_code: r.statusCode,
+                        content_type: r.contentType,
+                        body: r.body,
+                        delay: r.delay
+                    }
+                };
+                if (r.webhookUrl) {
+                    rule.webhook = {
+                        url: r.webhookUrl,
+                        method: r.webhookMethod,
+                        headers: r.webhookHeaders,
+                        body: r.webhookBody,
+                        delay: r.webhookDelay,
+                        content_type: r.webhookContentType,
+                        enabled: r.webhookEnabled
+                    };
+                }
+                return rule;
+            })
+        };
+
+        await this._putFile(owner, repo, branch, token,
+            `${envSlug}/${groupSlug}/${routeSlug}.json`,
+            JSON.stringify(routeData, null, 2),
+            `MockHub sync: ${envName}/${groupName}/${route.pathPattern}`
+        );
     }
 
     async _putFile(owner, repo, branch, token, path, content, message) {
