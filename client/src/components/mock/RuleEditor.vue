@@ -482,13 +482,15 @@ function highlightJson(text) {
 }
 
 function highlightXml(text) {
+  // Single-pass: match entire XML tags to avoid attribute regex mangling inserted spans
   return text
-    .replace(/&lt;(\/?)([\w:-]+)/g, (match, slash, tag) => {
-      return `&lt;${slash}<span class="text-blue-700 font-semibold">${tag}</span>`
-    })
-    .replace(/([\w:-]+)=("(?:\\.|[^"\\])*")/g, (match, attr, val) => {
-      return `<span class="text-purple-600">${attr}</span>=<span class="text-green-700">${val}</span>`
-    })
+    .replace(/&lt;(\/?)([\w:-]+)((?:\s+[\w:-]+=(?:"[^"]*"|'[^']*'))*\s*)(\/?)&gt;/g,
+      (match, slash, tag, attrs, selfClose) => {
+        let attrHtml = attrs.replace(/([\w:-]+)=("[^"]*"|'[^']*')/g,
+          (m, a, v) => ` <span class="text-purple-600">${a}</span>=<span class="text-green-700">${v}</span>`
+        )
+        return `&lt;${slash}<span class="text-blue-700 font-semibold">${tag}</span>${attrHtml}${selfClose}&gt;`
+      })
     .replace(/\{\{([^}]+)\}\}/g, (match, expr) => {
       return `<span class="text-rose-500 font-semibold">{{${expr}}}</span>`
     })
