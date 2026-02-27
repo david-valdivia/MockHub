@@ -15,9 +15,24 @@
           </select>
           <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern || '/' }}</span>
         </div>
-        <div v-if="fullUrl" class="mt-1 text-xs font-mono text-gray-400">{{ fullUrl }}</div>
         <button @click="confirmDeleteRoute" class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
           Delete Route
+        </button>
+      </div>
+      <div v-if="fullUrl" class="mt-3 flex items-center space-x-2">
+        <input
+          type="text"
+          readonly
+          :value="absoluteUrl"
+          class="flex-1 px-3 py-1.5 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg text-gray-600 select-all cursor-text"
+          @focus="$event.target.select()"
+        />
+        <button
+          @click="copyFullUrl"
+          class="px-3 py-1.5 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition flex items-center space-x-1"
+        >
+          <ClipboardDocumentIcon class="h-4 w-4" />
+          <span>Copy</span>
         </button>
       </div>
     </div>
@@ -147,6 +162,17 @@ const fullUrl = computed(() => {
   if (full.length > 1 && full.endsWith('/')) full = full.slice(0, -1)
   return full || '/'
 })
+const absoluteUrl = computed(() => {
+  const base = window.location.origin
+  return base + fullUrl.value
+})
+
+function copyFullUrl() {
+  navigator.clipboard.writeText(absoluteUrl.value)
+    .then(() => notificationStore.showToast('URL copied', 'success'))
+    .catch(() => notificationStore.showToast('Failed to copy', 'error'))
+}
+
 const showBulkRules = ref(false)
 const bulkRulesText = ref('')
 

@@ -3,10 +3,11 @@
     <div class="px-6">
       <div class="flex justify-between items-center h-16">
         <div class="flex items-center">
-          <img src="/favicon.png" alt="MockHub" class="h-8 w-8 mr-3 rounded" />
-          <span class="text-white text-xl font-bold">
-            MockHub
-          </span>
+          <img src="/favicon.png" alt="MockHub" class="h-10 w-10 mr-3 rounded" />
+          <div class="flex flex-col leading-tight">
+            <span class="text-white text-lg font-bold leading-none">MockHub</span>
+            <span class="text-blue-200 text-xs leading-none mt-0.5">API Mock Server</span>
+          </div>
         </div>
         
         <div class="flex items-center space-x-4">

@@ -318,6 +318,7 @@ export const useMockStore = defineStore('mock', () => {
 
   async function selectRemoteServer(serverId) {
     activeSyncServerId.value = serverId
+    localStorage.setItem('mockhub_activeServerId', serverId)
     activeEnvironment.value = null
     activeRoute.value = null
     routeLogs.value = []
@@ -328,6 +329,7 @@ export const useMockStore = defineStore('mock', () => {
 
   async function selectLocalServer() {
     activeSyncServerId.value = null
+    localStorage.removeItem('mockhub_activeServerId')
     syncStatus.value = null
     activeEnvironment.value = null
     activeRoute.value = null
@@ -388,9 +390,23 @@ export const useMockStore = defineStore('mock', () => {
   }
 
   async function initialize() {
+    const savedServerId = localStorage.getItem('mockhub_activeServerId')
+    if (savedServerId) {
+      activeSyncServerId.value = Number(savedServerId)
+    }
     await webhookApi.setActiveServer(activeSyncServerId.value)
     await loadEnvironments()
     await loadServers()
+    if (activeSyncServerId.value) {
+      const server = servers.value.find(s => s.id === activeSyncServerId.value)
+      if (server) {
+        activeServer.value = server
+        loadSyncStatus(activeSyncServerId.value)
+      } else {
+        activeSyncServerId.value = null
+        localStorage.removeItem('mockhub_activeServerId')
+      }
+    }
     setupSocketListeners()
   }
 

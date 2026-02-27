@@ -132,6 +132,7 @@
         <div class="border border-gray-300 rounded-lg overflow-hidden">
           <div
             v-if="!bodyFocused"
+            ref="bodyPreviewRef"
             @click="focusBody"
             class="px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
             style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
@@ -143,7 +144,7 @@
             v-model="form.body"
             @blur="onBodyBlur"
             class="w-full px-3 py-2 text-sm font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
-            style="max-height: 500px; min-height: 80px; word-break: break-word; tab-size: 2; line-height: 1.5;"
+            :style="`max-height: 500px; min-height: ${bodyEditorHeight}px; word-break: break-word; tab-size: 2; line-height: 1.5;`"
             spellcheck="false"
           ></textarea>
         </div>
@@ -256,6 +257,7 @@
             <div class="border border-gray-300 rounded-lg overflow-hidden">
               <div
                 v-if="!webhookBodyFocused"
+                ref="webhookPreviewRef"
                 @click="focusWebhookBody"
                 class="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 cursor-text"
                 style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
@@ -267,7 +269,7 @@
                 v-model="form.webhook_body"
                 @blur="onWebhookBodyBlur"
                 class="w-full px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words overflow-auto bg-gray-50 resize-none border-none outline-none"
-                style="max-height: 300px; min-height: 64px; word-break: break-word; tab-size: 2; line-height: 1.5;"
+                :style="`max-height: 300px; min-height: ${webhookEditorHeight}px; word-break: break-word; tab-size: 2; line-height: 1.5;`"
                 spellcheck="false"
                 placeholder='{"event":"lead.created","data":{"id":"{{$uuid}}","email":"{{body.email}}"}}'
               ></textarea>
@@ -324,6 +326,10 @@ const showWebhookTagPanel = ref(false)
 const webhookTextareaRef = ref(null)
 const bodyFocused = ref(false)
 const webhookBodyFocused = ref(false)
+const bodyPreviewRef = ref(null)
+const webhookPreviewRef = ref(null)
+const bodyEditorHeight = ref(80)
+const webhookEditorHeight = ref(64)
 let lastBodyCursor = -1
 let lastWebhookBodyCursor = -1
 const tooltip = reactive({ visible: false, x: 0, y: 0, desc: '', example: '' })
@@ -513,6 +519,7 @@ function onBodyBlur() {
 }
 
 function focusBody() {
+  if (bodyPreviewRef.value) bodyEditorHeight.value = bodyPreviewRef.value.offsetHeight
   bodyFocused.value = true
   nextTick(() => { textareaRef.value?.focus() })
 }
@@ -534,6 +541,7 @@ function onWebhookBodyBlur() {
 }
 
 function focusWebhookBody() {
+  if (webhookPreviewRef.value) webhookEditorHeight.value = webhookPreviewRef.value.offsetHeight
   webhookBodyFocused.value = true
   nextTick(() => { webhookTextareaRef.value?.focus() })
 }
