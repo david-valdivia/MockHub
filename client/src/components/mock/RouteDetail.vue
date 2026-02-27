@@ -1,39 +1,74 @@
 <template>
   <div class="space-y-6">
     <!-- Route Header -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <select
-            :value="mockStore.activeRoute.method"
-            @change="changeMethod($event.target.value)"
-            class="px-2 py-1 text-xs font-bold rounded border-0 cursor-pointer appearance-none pr-5 bg-no-repeat bg-[length:12px] bg-[right_4px_center]"
-            :class="methodBadge(mockStore.activeRoute.method)"
-            style="background-image: url('data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 20 20&quot; fill=&quot;currentColor&quot;&gt;&lt;path fill-rule=&quot;evenodd&quot; d=&quot;M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z&quot; clip-rule=&quot;evenodd&quot;/&gt;&lt;/svg&gt;')"
-          >
-            <option v-for="m in ['GET','POST','PUT','PATCH','DELETE','ALL']" :key="m" :value="m">{{ m }}</option>
-          </select>
-          <span class="text-lg font-mono text-gray-800">{{ mockStore.activeRoute.pathPattern || '/' }}</span>
-        </div>
-        <button @click="confirmDeleteRoute" class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
-          Delete Route
-        </button>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+      <!-- Breadcrumb -->
+      <div class="text-xs text-gray-400 mb-3">
+        <span>{{ mockStore.activeServer?.name || 'Local' }}</span>
+        <span class="text-gray-300 mx-1">›</span>
+        <span>{{ mockStore.activeEnvironment?.name }}</span>
+        <template v-if="routeGroup">
+          <span class="text-gray-300 mx-1">›</span>
+          <span>{{ routeGroup.name || routeGroup.path }}</span>
+        </template>
+        <span class="text-gray-300 mx-1">›</span>
+        <span class="text-gray-500">{{ mockStore.activeRoute.name || mockStore.activeRoute.pathPattern || '/' }}</span>
       </div>
-      <div v-if="fullUrl" class="mt-3 flex items-center space-x-2">
+
+      <!-- URL Bar (Postman-style) -->
+      <div class="flex items-center space-x-2">
+        <select
+          :value="mockStore.activeRoute.method"
+          @change="changeMethod($event.target.value)"
+          class="px-2.5 py-2 text-xs font-bold rounded-lg border border-gray-200 cursor-pointer appearance-none pr-6 bg-no-repeat bg-[length:12px] bg-[right_6px_center]"
+          :class="methodBadge(mockStore.activeRoute.method)"
+          style="background-image: url('data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 20 20&quot; fill=&quot;currentColor&quot;&gt;&lt;path fill-rule=&quot;evenodd&quot; d=&quot;M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z&quot; clip-rule=&quot;evenodd&quot;/&gt;&lt;/svg&gt;')"
+        >
+          <option v-for="m in ['GET','POST','PUT','PATCH','DELETE','ALL']" :key="m" :value="m">{{ m }}</option>
+        </select>
         <input
           type="text"
-          readonly
-          :value="absoluteUrl"
-          class="flex-1 px-3 py-1.5 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg text-gray-600 select-all cursor-text"
-          @focus="$event.target.select()"
+          v-model="editingPath"
+          @blur="savePath"
+          @keydown.enter="$event.target.blur()"
+          class="flex-1 px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          placeholder="/path-pattern"
         />
+        <!-- Copy full URL -->
         <button
           @click="copyFullUrl"
-          class="px-3 py-1.5 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition flex items-center space-x-1"
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          title="Copy full URL"
         >
-          <ClipboardDocumentIcon class="h-4 w-4" />
-          <span>Copy</span>
+          <ClipboardDocumentIcon class="h-5 w-5" />
         </button>
+        <!-- Options menu -->
+        <div class="relative">
+          <button
+            @click="showOptionsMenu = !showOptionsMenu"
+            class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          >
+            <EllipsisVerticalIcon class="h-5 w-5" />
+          </button>
+          <div
+            v-if="showOptionsMenu"
+            class="absolute right-0 top-full mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10"
+          >
+            <button
+              @click="showOptionsMenu = false; promptRename()"
+              class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition"
+            >
+              Rename
+            </button>
+            <button
+              @click="showOptionsMenu = false; confirmDeleteRoute()"
+              class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+            >
+              Delete Route
+            </button>
+          </div>
+          <div v-if="showOptionsMenu" class="fixed inset-0 z-0" @click="closeOptionsMenu"></div>
+        </div>
       </div>
     </div>
 
@@ -131,10 +166,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useMockStore } from '@/stores/mockStore'
 import { useNotificationStore } from '@/stores/notificationStore'
-import { ClipboardDocumentIcon } from '@heroicons/vue/24/outline'
+import { ClipboardDocumentIcon, EllipsisVerticalIcon } from '@heroicons/vue/24/outline'
 import RuleEditor from './RuleEditor.vue'
 import RequestLogPanel from './RequestLogPanel.vue'
 import Swal from 'sweetalert2'
@@ -142,6 +177,68 @@ import Swal from 'sweetalert2'
 const mockStore = useMockStore()
 const notificationStore = useNotificationStore()
 const activeTab = ref('rules')
+
+// Inline editing refs
+const editingPath = ref(mockStore.activeRoute?.pathPattern || '')
+const editingName = ref(mockStore.activeRoute?.name || '')
+const showOptionsMenu = ref(false)
+
+// Sync editing values when activeRoute changes
+watch(() => mockStore.activeRoute?.id, () => {
+  editingPath.value = mockStore.activeRoute?.pathPattern || ''
+  editingName.value = mockStore.activeRoute?.name || ''
+  showOptionsMenu.value = false
+})
+
+// Computed: find the group containing the active route
+const routeGroup = computed(() => {
+  const route = mockStore.activeRoute
+  const env = mockStore.activeEnvironment
+  if (!route || !env) return null
+  for (const g of (env.groups || [])) {
+    if ((g.routes || []).some(r => r.id === route.id)) return g
+  }
+  return null
+})
+
+// Save path on blur/Enter
+async function savePath() {
+  const newPath = editingPath.value.trim()
+  if (newPath === mockStore.activeRoute.pathPattern) return
+  try {
+    await mockStore.updateRoute(mockStore.activeRoute.id, { path_pattern: newPath })
+    notificationStore.showToast('Path updated', 'success')
+  } catch (e) {
+    editingPath.value = mockStore.activeRoute.pathPattern || ''
+    notificationStore.showToast('Failed to update path', 'error')
+  }
+}
+
+// Rename via Swal prompt
+async function promptRename() {
+  const { value: newName } = await Swal.fire({
+    title: 'Rename route',
+    input: 'text',
+    inputValue: mockStore.activeRoute.name || '',
+    inputPlaceholder: 'Route name',
+    showCancelButton: true,
+    confirmButtonText: 'Save',
+    inputValidator: (v) => !v?.trim() ? 'Name is required' : null
+  })
+  if (!newName) return
+  try {
+    await mockStore.updateRoute(mockStore.activeRoute.id, { name: newName.trim() })
+    editingName.value = newName.trim()
+    notificationStore.showToast('Name updated', 'success')
+  } catch (e) {
+    notificationStore.showToast('Failed to update name', 'error')
+  }
+}
+
+// Close dropdown on click outside
+function closeOptionsMenu() {
+  showOptionsMenu.value = false
+}
 
 const fullUrl = computed(() => {
   const route = mockStore.activeRoute
