@@ -44,6 +44,18 @@ class Application {
         this.app.use(bodyParser.urlencoded(config.bodyParser.urlencoded));
         this.app.use(bodyParser.text(config.bodyParser.text));
         this.app.use(bodyParser.raw(config.bodyParser.raw));
+
+        // Catch body-parser errors (malformed JSON, etc.) — store raw body and continue
+        this.app.use((err, req, res, next) => {
+            if (err.type === 'entity.parse.failed') {
+                req.bodyParseError = err.message;
+                req.rawBody = err.body || null;
+                req.body = null;
+                return next();
+            }
+            next(err);
+        });
+
         this.app.use(xmlParser);
 
         this.app.use(express.static(path.join(__dirname, 'public')));

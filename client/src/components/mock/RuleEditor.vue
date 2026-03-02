@@ -15,14 +15,10 @@
         <span class="text-xs text-gray-500 flex-shrink-0">&rarr; {{ rule.statusCode }}</span>
       </div>
       <div class="flex items-center space-x-2">
-        <span v-if="saving" class="flex items-center text-xs text-blue-500" title="Saving...">
-          <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-        </span>
-        <span v-else-if="dirty && !saved" class="flex items-center text-xs text-amber-500" title="Unsaved changes">
-          <ExclamationCircleIcon class="h-3.5 w-3.5" />
-        </span>
-        <span v-else-if="saved && !dirty" class="flex items-center text-xs text-green-500" title="Saved">
-          <CheckCircleIcon class="h-3.5 w-3.5" />
+        <span class="flex items-center w-3.5 h-3.5">
+          <svg v-if="saving" class="animate-spin h-3.5 w-3.5 text-blue-500" viewBox="0 0 24 24" title="Saving..."><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+          <ExclamationCircleIcon v-else-if="dirty && !saved" class="h-3.5 w-3.5 text-amber-500" title="Unsaved changes" />
+          <CheckCircleIcon v-else-if="saved && !dirty" class="h-3.5 w-3.5 text-green-500" title="Saved" />
         </span>
         <button @click.stop="duplicateRule" class="p-1 text-gray-400 hover:text-blue-600 transition" title="Duplicate rule">
           <DocumentDuplicateIcon class="h-4 w-4" />
@@ -35,15 +31,15 @@
     </div>
 
     <!-- Rule Body (expanded) -->
-    <div v-if="expanded" class="p-4 space-y-4 border-t border-gray-200">
+    <div v-if="expanded" class="p-4 border-t border-gray-200">
       <!-- Name -->
-      <div>
+      <div class="mb-4">
         <label class="block text-xs font-medium text-gray-600 mb-1">Rule Name <span class="text-gray-400 font-normal">(optional)</span></label>
         <input type="text" v-model="form.name" placeholder="e.g. Create response, Duplicate check, Default fallback..." class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg" />
       </div>
 
       <!-- Priority -->
-      <div class="grid grid-cols-3 gap-4">
+      <div class="grid grid-cols-3 gap-4 mb-4">
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Priority <span class="text-gray-400 font-normal">(lower = first)</span></label>
           <input type="number" v-model.number="form.priority" min="0" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg" />
@@ -59,7 +55,7 @@
       </div>
 
       <!-- Content Type -->
-      <div>
+      <div class="mb-4">
         <label class="block text-xs font-medium text-gray-600 mb-1">Content-Type</label>
         <select v-model="form.content_type" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg">
           <option value="application/json">application/json</option>
@@ -70,7 +66,7 @@
       </div>
 
       <!-- Conditions -->
-      <div>
+      <div class="mb-4">
         <div class="flex items-center justify-between mb-2">
           <label class="text-xs font-medium text-gray-600">Conditions <span class="text-gray-400 font-normal">(AND/OR logic)</span></label>
           <div class="flex items-center space-x-2">
@@ -94,7 +90,7 @@
       </div>
 
       <!-- Body -->
-      <div>
+      <div class="mb-4">
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs font-medium text-gray-600">Response Body</label>
           <div class="flex items-center space-x-2">
@@ -152,7 +148,7 @@
 
       <!-- Async Webhook Callback -->
       <div>
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between" :class="{ 'mb-2': showWebhook || form.webhook_url }">
           <label class="text-xs font-medium text-gray-600 flex items-center space-x-1.5">
             <span>Async Webhook Callback</span>
             <span class="text-gray-400 font-normal">(optional — fires after response is sent)</span>
@@ -280,7 +276,7 @@
       </div>
 
       <!-- Save -->
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
         <span class="text-xs text-gray-400">Ctrl+S to save</span>
         <button @click="saveRule" :disabled="saving" class="px-4 py-2 text-sm rounded-lg transition flex items-center space-x-1.5" :class="dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'">
           <svg v-if="saving" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>

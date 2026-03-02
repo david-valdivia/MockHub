@@ -79,6 +79,35 @@ class MockRoutingEngine {
             });
         }
 
+        // 2b. Handle body parse errors (malformed JSON, etc.)
+        if (req.bodyParseError) {
+            if (matchedRoute.captureRequests) {
+                const logData = {
+                    route_id: matchedRoute.id,
+                    environment_id: matchedEnv.id,
+                    method: req.method,
+                    path: fullPath,
+                    headers: JSON.stringify(req.headers),
+                    query_params: Object.keys(req.query || {}).length > 0 ? JSON.stringify(req.query) : null,
+                    body: req.rawBody || null,
+                    matched_rule_id: null,
+                    response_status: 400,
+                    response_body: JSON.stringify({ error: 'Bad Request', details: req.bodyParseError })
+                };
+
+                const savedLog = await requestLogRepository.create(logData);
+
+                socketService.broadcastMessage('mockRequestReceived', {
+                    environmentId: matchedEnv.id,
+                    environmentName: matchedEnv.name,
+                    routeId: matchedRoute.id,
+                    requestLog: savedLog.toJSON()
+                });
+            }
+
+            return res.status(400).json({ error: 'Bad Request', details: req.bodyParseError });
+        }
+
         // 3. Build context for condition evaluation and template resolution
         // Pre-load request logs for exists_in_logs / not_exists_in_logs conditions
         const previousLogs = await requestLogRepository.findByRouteId(matchedRoute.id);

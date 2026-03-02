@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/forms";
 
+html, body, #app {
+  overflow: hidden;
+  height: 100%;
+  margin: 0;
+}
+
 .swal-select-bordered {
   border: 2px solid #d1d5db !important;
   border-radius: 0.5rem !important;

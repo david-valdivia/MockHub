@@ -4,9 +4,12 @@
 
     <div class="flex-1 flex flex-col overflow-hidden">
       <header class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 class="text-lg font-semibold text-gray-900">MockHub</h1>
-          <p class="text-xs text-gray-500">API Mock Server</p>
+        <div class="flex items-center">
+          <img src="/favicon.png" alt="MockHub" class="h-9 w-9 mr-3 rounded" />
+          <div>
+            <h1 class="text-lg font-semibold text-gray-900 leading-none">MockHub</h1>
+            <p class="text-xs text-gray-500 leading-none mt-0.5">API Mock Server</p>
+          </div>
         </div>
         <div class="flex items-center space-x-3">
           <button @click="showImportModal = true" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition">
@@ -18,7 +21,7 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-6">
+      <main ref="mainRef" class="flex-1 overflow-y-auto p-6 bg-gray-50">
         <RouteDetail v-if="mockStore.activeRoute" />
         <div v-else-if="mockStore.activeEnvironment" class="text-center py-20">
           <p class="text-gray-500 text-lg">Select a route from the sidebar</p>
@@ -35,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMockStore } from '@/stores/mockStore'
 import EnvironmentSidebar from '@/components/mock/EnvironmentSidebar.vue'
@@ -47,6 +50,8 @@ const route = useRoute()
 const mockStore = useMockStore()
 const showCreateEnvModal = ref(false)
 const showImportModal = ref(false)
+const mainRef = ref(null)
+let resizeObserver = null
 
 onMounted(async () => {
   await mockStore.initialize()
@@ -56,6 +61,26 @@ onMounted(async () => {
       await mockStore.selectRoute(parseInt(route.params.routeId))
     }
   }
+
+  // Watch for content size changes and clamp scroll to prevent bottom whitespace
+  if (mainRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      const el = mainRef.value
+      if (!el) return
+      const maxScroll = el.scrollHeight - el.clientHeight
+      if (el.scrollTop > maxScroll) {
+        el.scrollTop = maxScroll
+      }
+    })
+    resizeObserver.observe(mainRef.value)
+    for (const child of mainRef.value.children) {
+      resizeObserver.observe(child)
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (resizeObserver) resizeObserver.disconnect()
 })
 
 watch(() => route.params, async (params) => {
