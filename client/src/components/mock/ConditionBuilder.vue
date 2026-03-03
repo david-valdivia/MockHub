@@ -66,6 +66,22 @@
           <XMarkIcon class="h-4 w-4" />
         </button>
       </div>
+      <!-- Sources for exists_in_logs / not_exists_in_logs -->
+      <div v-if="['exists_in_logs', 'not_exists_in_logs'].includes(condition.operator)" class="ml-4 mt-1 pl-3 border-l-2 border-amber-300 space-y-1">
+        <p class="text-[10px] text-gray-500">Search paths in logs <span class="text-gray-400">(empty = use field above)</span></p>
+        <div v-for="(src, si) in (condition.source || [])" :key="si" class="flex items-center space-x-1">
+          <input
+            v-model="condition.source[si]"
+            placeholder="e.g. responseBody.user.email"
+            class="flex-1 px-2 py-1 text-xs border border-gray-300 rounded font-mono"
+            @input="emitChange"
+          />
+          <button @click="removeSource(condition, si)" class="p-0.5 text-gray-400 hover:text-red-600">
+            <XMarkIcon class="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <button @click="addSource(condition)" class="text-[10px] text-amber-600 hover:text-amber-800 font-medium">+ Add source</button>
+      </div>
     </div>
 
     <!-- Quick insert tags -->
@@ -170,6 +186,17 @@ function insertTagToLast(value) {
 
 function onFieldBlur() {
   setTimeout(() => { activeFieldIndex.value = null }, 150)
+}
+
+function addSource(condition) {
+  if (!condition.source) condition.source = []
+  condition.source.push('')
+  emitChange()
+}
+
+function removeSource(condition, si) {
+  condition.source.splice(si, 1)
+  emitChange()
 }
 
 function removeCondition(index) {

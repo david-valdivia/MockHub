@@ -97,7 +97,7 @@ src/
 │   └── requestLogRepository.js # updateWebhookResult() for async callback logging
 ├── services/
 │   ├── mockRoutingEngine.js    # Core: 3-level URL matching (env+group+route), webhook callbacks
-│   ├── conditionEvaluator.js   # AND/OR groups, 13 operators, case-insensitive headers
+│   ├── conditionEvaluator.js   # AND/OR groups, 13 operators, case-insensitive headers, source[] for log paths
 │   ├── templateEngine.js       # {{var}} resolution, fallback pipes, built-in variables
 │   ├── socketService.js        # Socket.IO wrapper for real-time events
 │   ├── githubSyncService.js    # GitHub API: pull/push with content hashing, metadata sync on both directions

@@ -461,7 +461,8 @@ RULE FORMAT:
         "field": "<path>",      // dot-notation: headers.authorization, body.email, query.page, params.id
         "operator": "<op>",     // equals, not_equals, contains, not_contains, exists, not_exists, gt, gte, lt, lte, matches (regex), exists_in_logs (value already seen in previous requests), not_exists_in_logs
         "value": "<value>",     // omit for exists/not_exists
-        "logic": "and"|"or"     // connector to previous condition (default: "and"). Groups split by "or", each group uses AND
+        "logic": "and"|"or",    // connector to previous condition (default: "and"). Groups split by "or", each group uses AND
+        "source": ["<path>"]    // optional, only for exists_in_logs/not_exists_in_logs: alternative dot-notation paths to search in logs (e.g. ["body.email", "responseBody.user.email"]). If omitted or empty, uses "field"
       }
     ],
     "status_code": <number>,    // HTTP status code

@@ -50,22 +50,27 @@ class ConditionEvaluator {
                     return false;
                 }
             case 'exists_in_logs':
-                return this.checkExistsInLogs(context, field, actual);
+                return this.checkExistsInLogs(context, field, actual, condition.source);
             case 'not_exists_in_logs':
-                return !this.checkExistsInLogs(context, field, actual);
+                return !this.checkExistsInLogs(context, field, actual, condition.source);
             default:
                 return false;
         }
     }
 
-    checkExistsInLogs(context, field, currentValue) {
+    checkExistsInLogs(context, field, currentValue, sources) {
         if (!context._logs || !Array.isArray(context._logs)) return false;
         if (currentValue === undefined || currentValue === null) return false;
 
+        // Use sources array if provided, otherwise fall back to field
+        const paths = Array.isArray(sources) && sources.length > 0 ? sources : [field];
+
         // _logs are sorted DESC (newest first)
         const allMatches = context._logs.filter(log => {
-            const logValue = this.getNestedValue(log, field);
-            return logValue !== undefined && logValue !== null && String(logValue) === String(currentValue);
+            return paths.some(path => {
+                const logValue = this.getNestedValue(log, path);
+                return logValue !== undefined && logValue !== null && String(logValue) === String(currentValue);
+            });
         });
 
         if (allMatches.length > 0) {
