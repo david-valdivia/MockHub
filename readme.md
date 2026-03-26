@@ -62,11 +62,14 @@ The routing engine concatenates paths from all 3 levels (environment, group, rou
 docker build -t mockhub .
 
 # Run (data persisted in volume)
-docker run -d -p 1995:1995 -v mockhubdata:/app/data --name mockhub mockhub
+docker run -d -p 1994:1995 -p 1995:1995 -v mockhubdata:/app/data --name mockhub webhook-server
 
 # Stop / Start
 docker stop mockhub
 docker start mockhub
+
+# IMPORTANT
+You could need reset your browser if you are using OrbStack domains or similar.
 
 # View logs
 docker logs -f mockhub
